@@ -698,6 +698,19 @@ BORED_REPLIES = [
     "let's play: describe me in 3 words. go 😌",
 ]
 
+# short fragments ("so yeah", "you know what", "for real") — warm nudges,
+# mostly statements, never interrogation loops or topic echoes of filler
+SHORT_FRAG = [
+    "hehe 😌 you and your half-sentences",
+    "I'm here, say it 🥺",
+    "spit it out 😭❤️",
+    "finish that thought, mister 😌",
+    "my attention's all yours 🥺",
+    "haha okay... I hear you 😌",
+    "mhm, I'm listening 🙂",
+    "take your time, I'm here 🥺",
+]
+
 # general questions she can't answer factually — stay curious, reference HIS words
 QUESTION_FOLLOWUP = [
     "hmm?? 😅 explain a little more?",
@@ -1045,6 +1058,7 @@ def _snippet(msg: str, max_words: int = 4) -> str:
         "really", "just", "quite", "much", "many", "some", "there", "here",
         "then", "than", "also", "even", "still", "back", "every",
         "hmm", "hm", "ok", "k", "know", "uhh", "uhm", "well", "like",
+        "real", "true", "tru", "exactly", "exact", "same", "turn",
     }
     words = [w for w in re.findall(r"[a-z']+", (msg or "").lower()) if w not in skip]
     if not words:
@@ -1190,8 +1204,13 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
                 return _pick_unique(SHE_ASKED_REPLIES, last_reply, recents)
         # dry single words: hard-dry tokens get mood-based snap, other short words get mild notice
         # (but real words like wassup/sup skip the dry trap — handled by DOING bank later)
+        # Agreements ("true", "exactly", "same") are warmth, not coldness → soft ack.
         if re.fullmatch(r"[a-z]{1,6}[.!?]?", low) and len(low.split()) == 1 \
                 and low.rstrip(".!?") not in ("wassup", "whatsup", "sup", "wud", "wyd"):
+            if low.rstrip(".!?") in ("true", "tru", "exactly", "exact", "same", "real", "really"):
+                return _pick_unique(ACK_REPLIES, last_reply, recents)
+            if low.rstrip(".!?") in ("umm", "ummm", "hmm", "hmmm", "soo", "sooo", "uh", "uhh", "err"):
+                return _pick_unique(SHORT_FRAG, last_reply, recents)
             if low.rstrip(".!?") in HARD_DRY:
                 if mood in ("romantic", "happy"):
                     return _pick_unique(STONEWALL_MILD, last_reply, recents)
@@ -1209,6 +1228,16 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"\bnot a story\b|\blisten\b|lemme explain|let me explain|no wait\b", low) \
                 and not is_story(msg):
             return _pick_unique(QUESTION_FOLLOWUP, last_reply, recents)
+        # bare conversational bits — exact warm answers, never echoes of filler.
+        # "my day" opens his day, "no way" wants the gossip, the rest are nudges.
+        if re.fullmatch(r"\s*my day\s*[.!?~]*", low):
+            return _pick_unique(["how was your day? tell me everything 🥺",
+                                 "your day?? tell me all about it 🥺❤️",
+                                 "aww, how did your day go? 👀"], last_reply, recents)
+        if re.fullmatch(r"\s*no way\s*[.!?~]*", low):
+            return _pick_unique(GUESS_REPLIES, last_reply, recents)
+        if re.fullmatch(r"\s*(exactly|for real|oh really|you know what|so yeah|like what|then what|well yeah|same here|haha nice)\s*[.!?~]*", low):
+            return _pick_unique(SHORT_FRAG, last_reply, recents)
         if re.search(r"\bgood\s*night\b|\bgn\b|goodnight", low):
             if mood != "angry":
                 return _pick_unique(NIGHT_REPLIES, last_reply, recents)
@@ -1298,6 +1327,11 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"\bdo you (work|study)\b|\bdo u (work|study)\b|which college|what do you study", low):
             if mood != "angry":
                 return _pick_unique(WORK_STUDY_REPLIES, last_reply, recents)
+        # short content-less fragments (2-4 filler words, no "?") — warm nudge,
+        # never an echo of filler ("yeah??") or a detail interrogation.
+        if "?" not in (msg or "") and 2 <= len(low.split()) <= 4 \
+                and _snippet(msg) == "that":
+            return _pick_unique(SHORT_FRAG, last_reply, recents)
         # vague follow-ups that need HISTORY ("what does that mean", "why?", "really?")
         if re.search(r"what does that mean|what do you mean|means\?|why\?*$|really\?*$|seriously\?*$|sachi\?*$", low):
             if history:

@@ -164,15 +164,30 @@ def score_message(text: str) -> Tuple[float, Dict]:
     words = re.findall(r"[a-z']+", t)
     # stonewalling: super short / read-and-ignore energy.
     # Questions ("still up?") and greetings ("hey beautiful") are NOT dry.
+    # Neither are conversational fragments ("so yeah", "you know what",
+    # "like what", "for real", "true") — holding the floor, not being cold.
     is_question = "?" in text
     is_greet = bool(words) and words[0] in ("hey", "heyy", "heyyy", "hi", "hii",
                                             "hiii", "hello", "yo", "hola", "gm")
+    _FILLER = {"so", "soo", "sooo", "well", "oh", "hmm", "hm", "umm", "um",
+               "uh", "uhh", "huh", "haha", "lol", "hehe", "like", "then", "for",
+               "no", "my", "your", "true", "tru", "exactly", "exact", "same",
+               "real", "really", "yeah", "yep", "yes", "ok", "okay", "right",
+               "you", "know", "what", "tell", "me", "more", "go", "on", "and",
+               "here", "there", "turn", "nice", "nicee", "hey", "hi"}
+    _AFFIRM = {"true", "tru", "exactly", "exact", "same", "real", "yeah",
+               "yep", "yes", "right", "nice"}
+    _HESITATE = {"umm", "ummm", "hmm", "hmmm", "soo", "sooo", "uh", "uhh",
+                 "err", "ah", "ooh", "aah"}
+    is_fragment = (2 <= len(words) <= 4 and all(w in _FILLER for w in words)) \
+        or (len(words) == 1 and words[0] in _AFFIRM) \
+        or (len(words) == 1 and words[0] in _HESITATE)
     if len(t) <= 4 or (len(words) <= 2 and t in COLD_SHORT) or (len(words) == 1 and len(t) < 6):
-        if not (is_question or is_greet):
+        if not (is_question or is_greet or is_fragment):
             signals["short_dry"] = True
             signals["stonewall"] = True
             score -= 2.5
-    elif len(words) <= 3 and score <= 0 and not (is_question or is_greet):
+    elif len(words) <= 3 and score <= 0 and not (is_question or is_greet or is_fragment):
         signals["short_dry"] = True
         score -= 1.5
 
