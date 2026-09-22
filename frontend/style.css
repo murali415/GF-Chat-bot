@@ -92,13 +92,19 @@ body{
   transform:translateY(150%) scale(.5);opacity:0;transform-origin:bottom left;
   transition:transform .38s cubic-bezier(.34,1.56,.64,1),opacity .25s ease}
 .peek.show{transform:translateY(0) scale(1);opacity:1}
-.peek-face{font-size:44px;line-height:1;animation:peekwiggle 1.6s ease-in-out infinite}
+/* tiny full-body anime girl: bobs while typing, arms alternate like typing */
+.peek-girl{width:58px;height:auto;overflow:visible}
+.peek-girl .bob{animation:girlbob .9s ease-in-out infinite;transform-box:fill-box;transform-origin:center bottom}
+.peek-girl .arm-l{animation:typeL .45s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:top center}
+.peek-girl .arm-r{animation:typeR .45s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:top center}
+@keyframes girlbob{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-3px) rotate(1.5deg)}}
+@keyframes typeL{from{transform:rotate(-14deg)}to{transform:rotate(10deg)}}
+@keyframes typeR{from{transform:rotate(10deg)}to{transform:rotate(-14deg)}}
 .peek-bubble{background:#fff;border:1px solid var(--line);border-radius:12px 12px 12px 4px;
   padding:7px 9px;display:flex;gap:4px;box-shadow:0 3px 10px #e91e6322;margin-bottom:32px}
 .peek-bubble span{width:7px;height:7px;border-radius:50%;background:var(--pink2);animation:dotbounce 1.1s ease-in-out infinite}
 .peek-bubble span:nth-child(2){animation-delay:.15s}
 .peek-bubble span:nth-child(3){animation-delay:.3s}
-@keyframes peekwiggle{0%,100%{transform:rotate(-6deg) translateY(0)}50%{transform:rotate(6deg) translateY(-4px)}}
 @keyframes dotbounce{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(-4px);opacity:1}}
 
 footer{text-align:center;color:var(--muted);font-size:12px;padding:14px;position:relative;z-index:1}
@@ -108,7 +114,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:14px;position
   .bg-hearts span,.bg-hearts i,.bg-hearts b{animation:none}
   .mood-bg{transition:none}
   .peek{transition:none}
-  .peek-face,.peek-bubble span{animation:none}
+  .peek-girl .bob,.peek-girl .arm-l,.peek-girl .arm-r,.peek-bubble span{animation:none}
   .msg{animation:none;content-visibility:visible}
   #loveBar{transition:none}
 }

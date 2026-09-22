@@ -151,19 +151,27 @@ async function refreshState() {
   }
 }
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
 async function send(text) {
   const name = $("bfName").value || "babe";
   addMsg(text, "bf", "You");
   inputEl.value = "";
   const typing = addMsg("Priya is typing... 💭", "gf", "");
   typing.classList.add("typing");
-  $("peek").classList.add("show"); // 👧 pops up while she types
+  $("peek").classList.add("show"); // tiny girl pops up, types away
+  const t0 = Date.now();
   try {
     const r = await fetch(API + "/api/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text, boyfriend_name: name }),
     });
     const d = await r.json();
+    // typing pause: longer replies "take longer to type" (0.9s – 2.8s).
+    // If the API was already slow, show instantly — never add dead waiting.
+    const want = Math.min(2800, 900 + (d.reply || "").length * 22);
+    const wait = want - (Date.now() - t0);
+    if (wait > 0) await sleep(wait);
     typing.remove();
     $("peek").classList.remove("show"); // reply sent → she ducks away
     addMsg(d.reply, "gf", `Priya • ${d.mood.label} ${d.mood.emoji}`);
