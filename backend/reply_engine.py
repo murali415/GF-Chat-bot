@@ -703,6 +703,14 @@ WHERE_LIVE_REPLIES = [
     "close enough to miss you daily 🥺",
 ]
 
+# "what do you love" — answer is always him (never a random echo)
+WHAT_LOVE_REPLIES = [
+    "you. obviously you 🥺❤️",
+    "you, silly 😌❤️ what else would it be",
+    "us. this. everything about you 🥺",
+    "your stupid cute face. that's what 🥺❤️",
+]
+
 # "do you work / study" — cute + ask back
 WORK_STUDY_REPLIES = [
     "college by day, professional girlfriend by night 😌❤️ you?",
@@ -981,14 +989,36 @@ def nickname(memories, mood: str = "neutral") -> str:
 def memory_nick_or_none(memories, mood: str = "neutral") -> str | None:
     """Nickname ONLY when a retrieved memory genuinely matches — None otherwise.
     The fallback must never invent memory vibes for unrelated messages."""
+    nick, _ = memory_anchor(memories, mood, "")
+    return nick
+
+
+def memory_anchor(memories, mood: str = "neutral", msg: str = "") -> tuple:
+    """(nickname, overlap): best retrieved memory that BOTH matches a known
+    nickname AND is visibly linked from HIS side — either his words contain
+    the memory keyword, or a shared word sits inside the nickname itself.
+    Overlap via unrelated words ("met an old teacher" → chai date) is
+    rejected: that's how fake memories happen."""
+    mw = _content_words(msg) if msg else set()
+    best, best_ov = None, 0
     for m in memories or []:
         t = (m.get("text", "") or "").lower()
         for key, nick in NICKNAMES:
             if key in t:
                 if mood in ("romantic", "spicy", "happy", "playful") and nick in SORE_NICKS:
                     continue  # don't drag fights into sweet moments
-                return nick
-    return None
+                if not mw:
+                    if best is None:
+                        best, best_ov = nick, 1
+                    continue
+                ov_set = mw & _content_words(t)
+                linked = any(kw in mw for kw in key.split()) \
+                    or any(w in nick.lower() for w in ov_set)
+                if linked and (len(ov_set) > best_ov or best is None):
+                    best, best_ov = nick, len(ov_set)
+    if best is None:
+        return None, 0
+    return best, best_ov
 
 
 def cap(s: str) -> str:
@@ -1133,6 +1163,8 @@ def _snippet(msg: str, max_words: int = 4) -> str:
         "then", "than", "also", "even", "still", "back", "every",
         "hmm", "hm", "ok", "k", "know", "uhh", "uhm", "well", "like",
         "real", "true", "tru", "exactly", "exact", "same", "turn",
+        "iss", "tht", "dat", "dis", "wht", "wat", "teh", "hte",
+        "yuo", "nad", "taht", "si", "waht", "tihs",
     }
     words = [w for w in re.findall(r"[a-z']+", (msg or "").lower()) if w not in skip]
     if not words:
@@ -1348,7 +1380,7 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if "plan" in low and any(w in low for w in ("today", "tonight", "tomorrow", "weekend", "sunday")):
             if mood not in ("angry", "upset"):
                 return _pick_unique(PLANS_REPLIES, last_reply, recents)
-        if re.search(r"\bwyd\b|what('re| are) (you|u) doing|what.*doing now|where are you|what'?s up\b|whats+'?s?\s*up|whatsup|wassup|\bsup\b|\bwud\b", low):
+        if re.search(r"\bwyd\b|what('re| are| were| was) (you|u) (doing|up to)|what (you|u) (doing|up to)|what.*doing (now|rn)|where are you|what'?s up\b|whats+'?s?\s*up|whatsup|wassup|\bsup\b|\bwud\b", low):
             if mood not in ("angry", "upset"):
                 return _pick_unique(DOING_REPLIES, last_reply, recents)
         # vague acknowledgments (haa/yeah/yes/okay) — soft ack, not melodrama
@@ -1374,6 +1406,10 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"\bdo you (love|miss|like|care|trust) me\b|do you remember|do you wanna", low):
             if mood not in ("angry",):
                 return _pick_unique(OPINION_YES_REPLIES, last_reply, recents)
+        # "what do you love / who do you love" — answer is always him
+        if re.search(r"what do (you|u) love|who do (you|u) love|what do you like the most|what do you like most", low):
+            if mood != "angry":
+                return _pick_unique(WHAT_LOVE_REPLIES, last_reply, recents)
         # "do you like X" (food/movie/thing — "me" handled above) — yes with a spin
         if re.search(r"\bdo you like\b|\bdo u like\b", low):
             if mood not in ("angry",):
@@ -1483,21 +1519,35 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if out == last_reply and len(REPLIES.get(mood, [])) > 1:
             out = random.choice(REPLIES.get(mood, REPLIES["neutral"]))
     else:
-        # GROUNDED fallback: built from HIS words every time — random lines are
-        # banned here. Echo his topic with rotating frames (never repeats thanks
-        # to recents-dedup); memory nicknames only on genuine memory overlap.
+        # GROUNDED fallback: maximum effort from RAG + his words, never random.
+        # 1) A retrieved memory genuinely about HIS topic wins outright, told
+        #    as statements AND questions (no more "tell me more" every time).
+        # 2) Else echo his topic with rotating frames (recents-deduped).
         snip = _snippet(msg or "")
         warm = mood in ("romantic", "spicy", "happy", "playful")
-        if snip != "that":
+        anchor, overlap = memory_anchor(memories, mood, msg or "")
+        if anchor and overlap >= 2:
+            if warm:
+                cands = [
+                    f"omg that reminds me of {anchor} 🥺❤️",
+                    f"{snip}?? like {anchor} all over again? 👀",
+                    f"haha this is giving {anchor} 😭",
+                    f"aww {anchor}... my favorite us 🥺",
+                    f"{anchor}!! okay tell me everything 👀",
+                ]
+            else:
+                cands = [
+                    f"like {anchor} again... 🙄",
+                    f"{anchor}, huh? go on 😒",
+                ]
+            out = _pick_best(cands, msg or "", last_reply, recents, history)
+        elif snip != "that":
             frames = ECHO_FRAMES_WARM if warm else ECHO_FRAMES_COLD
             cands = [f.format(snip=snip) for f in frames]
             # excited "!" statements get reactions, not questions
             if warm and (msg or "").strip().endswith("!"):
                 cands += [f"yesss {snip}!! 🎉", f"omg I love that energy 😭❤️",
                           f"{snip}!! okay that's hot 🥺"]
-            real_nick = memory_nick_or_none(memories, mood)
-            if real_nick:
-                cands.append(f"aww 🥺 {real_nick} vibes... tell me more?")
             out = _pick_best(cands, msg or "", last_reply, recents, history)
         elif warm:
             real_nick = memory_nick_or_none(memories, mood)
