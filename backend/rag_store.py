@@ -2,6 +2,7 @@
 RAG store: pure-Python TF-IDF retrieval over past conversations + seed memories.
 No external deps. Persists to JSON.
 """
+import atexit
 import json
 import math
 import os
@@ -31,6 +32,14 @@ class RAGStore:
         self.docs: List[Dict] = []  # {id, text, bf, gf, mood, delta, timestamp}
         self.seed = seed_memories or []
         self._tokcache: Dict[str, List[str]] = {}  # key -> tokens (speed at 10k scale)
+        self._save_lock = threading.Lock()
+        self._save_threads = []
+        # Background saves die with the process — flush on exit so training
+        # scripts never lose their final write (cost: ~1s at exit).
+        try:
+            atexit.register(self.flush)
+        except Exception:
+            pass
         self._load()
 
     # ---------- persistence ----------
@@ -110,7 +119,8 @@ class RAGStore:
         # ENTIRE snapshot + write + replace, so overlapping saves can never
         # interleave bytes into the same tmp file (that corrupts the store).
         # Each thread snapshots under the lock, so the last writer always
-        # persists the newest state.
+        # persists the newest state. Cap 500k docs (~110MB) — headroom above
+        # the ~230k trained base so growth never silently drops old memory.
         try:
             path = self.path
             os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -121,7 +131,7 @@ class RAGStore:
             def _write():
                 try:
                     with self._save_lock:
-                        snapshot = {"docs": self.docs[-150000:]}
+                        snapshot = {"docs": self.docs[-500000:]}
                         tmp = path + ".tmp"
                         with open(tmp, "w", encoding="utf-8") as f:
                             json.dump(snapshot, f, ensure_ascii=False,

@@ -477,7 +477,9 @@ TEASE_MONEY_REPLIES = [
     "let me check my rich-boyfriend fund... empty 😭",
 ]
 
-# factual/math questions — playful smartass, short
+# factual/math questions — playful smartass, short.
+# (Exact arithmetic is SOLVED in template_critical; this bank is only the
+# offline fallback when no brain is reachable.)
 SMARTASS_REPLIES = [
     "2. obviously. genius 😌",
     "google it, loverboy 😌📱",
@@ -486,6 +488,50 @@ SMARTASS_REPLIES = [
     "idk, ask Siri 😌📱",
     "wow, homework?? at your age 😌",
 ]
+
+# exact math answers — she actually computes (works offline, even on Vercel)
+MATH_RIGHT = [
+    "{ans} 😌 told you I'm smart",
+    "{ans}! kiss tax for math 🥺",
+    "{ans} 😌 genius girlfriend strikes",
+    "{ans}!! easy. next question? 😌",
+]
+
+
+def solve_math(text: str) -> str | None:
+    """Solve binary arithmetic + percent-of locally. Returns answer string or None."""
+    t = (text or "").lower()
+    m = re.search(r"(\d+(?:\.\d+)?)\s*%\s*of\s*(\d+(?:\.\d+)?)", t)
+    try:
+        if m:
+            ans = float(m.group(1)) / 100 * float(m.group(2))
+        else:
+            m = re.search(r"(\d+(?:\.\d+)?)\s*(?:([+\-*/×÷%^])|(plus|minus|multiplied by|divided by|times))\s*(\d+(?:\.\d+)?)", t)
+            if not m:
+                return None
+            a, op, word, b = float(m.group(1)), m.group(2), m.group(3), float(m.group(4))
+            op = op or {"plus": "+", "minus": "-", "multiplied by": "*", "times": "*", "divided by": "/"}[word]
+            if op == "+":
+                ans = a + b
+            elif op == "-":
+                ans = a - b
+            elif op in ("*", "×"):
+                ans = a * b
+            elif op in ("/", "÷"):
+                if b == 0:
+                    return None
+                ans = a / b
+            elif op == "%":
+                ans = a % b
+            elif op == "^":
+                ans = a ** b
+            else:
+                return None
+        if ans != ans or ans in (float("inf"), float("-inf")):
+            return None
+        return str(int(ans)) if float(ans).is_integer() else f"{ans:.2f}".rstrip("0").rstrip(".")
+    except Exception:
+        return None
 
 # defiance ("on your face", "what will you do") — don't go therapist-mode
 DEFIANT_REPLIES = [
@@ -784,6 +830,17 @@ SHORT_FRAG = [
     "you've got my full attention 😌",
     "go on, I'm curious now 🥺",
     "hehe, that pause... say it 😌",
+]
+
+# Story-time tales: tiny invented memories she narrates when asked
+# ("tell me a story"). Grounded in YOUR lore (rain date, Goa dream, orchard,
+# terrace, hoodie war). Told warm, ~45 words — longer than normal replies.
+STORYTELL_TALES = [
+    "okay listen... our first date? pouring rain, one tiny umbrella, and you walking me home till 1am while we talked about everything. I reach that night every time it rains 🥺❤️",
+    "close your eyes... Goa, sunset, shack dinner with our feet in the sand. you pull me up to dance and everyone claps. that's my favorite daydream of us 🌅❤️",
+    "when I was little, grandpa took me to the mango orchard every summer. sticky hands, cold well water, naps under the trees. I'll take you there someday, promise 🥺",
+    "terrace night... one blanket, a sky full of stars, your arm going numb under my head and you not moving for an hour. that's when I knew I'm yours 🌙❤️",
+    "the hoodie war... you stole mine, I stole yours back, now it smells like you and I'm never returning it. it's basically my emotional support hoodie 😌❤️",
 ]
 
 # general questions she can't answer factually — stay curious, reference HIS words
@@ -1252,6 +1309,17 @@ def template_critical(mood: str, name: str, memories, signals, msg: str,
     if re.fullmatch(r"tell me[.!?]*", low):
         return _pick_unique(TELLME_REPLIES, last_reply, recents)
 
+    # exact math — she computes it herself (instant, works offline too)
+    _ans = solve_math(msg)
+    if _ans is not None:
+        return _pick_unique(MATH_RIGHT, last_reply, recents).format(ans=_ans)
+
+    # story-time request — she narrates a tiny tale from your lore.
+    # (who-is-she probes above keep their exact answers; this is for stories.)
+    if re.search(r"tell me a story|tell me something (interesting|funny|cool|new|fun|deep)\b|tell me something[.!?]*$|story (sunao|suna|batao)|entertain me|bore me no more", low):
+        if mood not in ("angry",):
+            return _clip(_pick_unique(STORYTELL_TALES, last_reply, recents), 55)
+
     # guess what/who — curious, not random
     if re.search(r"guess wha?t\b|guess who\b", low):
         return _pick_unique(GUESS_REPLIES, last_reply, recents)
@@ -1410,8 +1478,8 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"what do (you|u) love|who do (you|u) love|what do you like the most|what do you like most", low):
             if mood != "angry":
                 return _pick_unique(WHAT_LOVE_REPLIES, last_reply, recents)
-        # "do you like X" (food/movie/thing — "me" handled above) — yes with a spin
-        if re.search(r"\bdo you like\b|\bdo u like\b", low):
+        # "do you like/love X" (food/movie/thing — "me" handled above) — yes with a spin
+        if re.search(r"\bdo you (like|love)\b|\bdo u (like|love)\b", low):
             if mood not in ("angry",):
                 return _pick_unique(LIKE_YES_REPLIES, last_reply, recents)
         # "tell me a joke / make me laugh" — cute, never random
@@ -1523,6 +1591,8 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         # 1) A retrieved memory genuinely about HIS topic wins outright, told
         #    as statements AND questions (no more "tell me more" every time).
         # 2) Else echo his topic with rotating frames (recents-deduped).
+        # Statements beat questions when HE didn't ask anything — she reacts
+        # like a human instead of interviewing him.
         snip = _snippet(msg or "")
         warm = mood in ("romantic", "spicy", "happy", "playful")
         anchor, overlap = memory_anchor(memories, mood, msg or "")
@@ -1548,6 +1618,11 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
             if warm and (msg or "").strip().endswith("!"):
                 cands += [f"yesss {snip}!! 🎉", f"omg I love that energy 😭❤️",
                           f"{snip}!! okay that's hot 🥺"]
+            # he stated, so she mostly STATES (70/30) — questions only win big
+            if "?" not in (msg or ""):
+                stmts = [c for c in cands if not c.rstrip().endswith("?")]
+                if stmts and random.random() < 0.7:
+                    cands = stmts
             out = _pick_best(cands, msg or "", last_reply, recents, history)
         elif warm:
             real_nick = memory_nick_or_none(memories, mood)
@@ -1627,6 +1702,9 @@ def build_system_prompt(mood: str, name: str, memories, signals=None,
         f"{avoid}"
         f"RULES: max 25 words, 1-2 short sentences, casual texting style, a few emojis ok. "
         f"React to WHAT HE JUST SAID, in light of the recent chat above. "
+        f"If he asks a FACTUAL question (math, meanings, capitals, how things "
+        f"work, who someone is), answer it correctly and briefly FIRST, then add "
+        f"one line of girlfriend flavor. Never dodge facts with jokes. "
         f"You did NOTHING wrong — NEVER apologize or say sorry for yourself. "
         f"If HE apologizes, forgive warmly or stay mad matching your mood. "
         f"Play along with any names/roles he gives (if he's Romeo, you're Juliet). "
@@ -1817,7 +1895,10 @@ def is_explicit_request(text: str) -> bool:
         r"\bi want you\b(?!\s+to\b)|need you (now|tonight|here|badly)|turned on|"
         r"make love|\bbedroom\b|touch me|take me\b(?!\s+seriously)|turn me on|"
         r"(you look|you are|you're|\bur\b|\bu r\b).{0,15}(so hot|sexy)|"
-        r"(so hot|sexy).{0,10}(you|baby|jaan|babe)\b", t))
+        r"(so hot|sexy).{0,10}(you|baby|jaan|babe)\b|"
+        r"have sex|lets fuck|let us fuck|wanna fuck|fuck me|"
+        r"\b69\b|blowjob|handjob|\bpussy\b|\bdick\b|"
+        r"\bcum\b|orgasm|make out|you('re|r| are) hot\b", t))
 
 
 def _is_simple_question(text: str) -> bool:
@@ -1827,14 +1908,36 @@ def _is_simple_question(text: str) -> bool:
         return False
     return bool(re.search(
         r"plan.*(today|tonight|tomorrow|weekend)|what.*(ur|your|you'?re?) plans?"
-        r"|\bwyd\b|what('re| are) (you|u) doing|where are you|you there|u there"
+        r"|\bwyd\b|what('re| are| were| was) (you|u) (doing|up to)|what (you|u) (doing|up to)|what.*doing (now|rn)|where are you|you there|u there"
         r"|\bgood\s*(night|morning)\b|\bi miss (you|u)\b|call (me|na)"
         r"|did (you|u) eat|had (lunch|dinner)"
-        r"|tell me a joke|make me laugh|favorite|favourite|do you like"
+        r"|tell me a joke|make me laugh|favorite|favourite|do you like|do you love"
         r"|\bbored\b|go for a (walk|drive|coffee|chai)|come over|lets meet"
         r"|what do (you|u) do|where do you live|do you (work|study)"
         r"|promoted|failed|went bad|new job",
         low))
+
+
+def _is_knowledge_question(text: str) -> bool:
+    """Factual questions (math, meanings, who/what/why/how things) that deserve
+    a REAL answer from the brain — never a smartass deflection while a model
+    is reachable. Relationship questions are excluded (exact branches own them)."""
+    low = (text or "").lower().strip()
+    if len(low) < 12:
+        return False
+    if re.search(r"\d+\s*[+\-*/×÷]\s*\d+|multiplied by|divided by|square root|"
+                 r"percent of|\d+\s*(plus|minus)\s*\d+", low):
+        return True
+    if re.match(r"(what('s| is| are| was| were)|who('s| is| are| was)|"
+                r"when (did|was|is)|where (is|are|was)|"
+                r"why (is|are|do|does|did)|how (do|does|did|can))", low):
+        if re.search(r"do you (love|miss|like|care|trust) me|your day|"
+                     r"you (doing|up to)|wyd|what do you think|tell me|"
+                     r"who are you|your name|my name|how are you|"
+                     r"about yourself|favorite|do you like|do you love|i love you", low):
+            return False
+        return True
+    return False
 
 
 def generate_reply(mood: str, boyfriend_name: str, boyfriend_msg: str,
@@ -1863,6 +1966,22 @@ def generate_reply(mood: str, boyfriend_name: str, boyfriend_msg: str,
                                last_reply=last_reply, recents=recents,
                                last_topic=last_topic, history=history),
                 "template-fastpath")
+    # 1c) knowledge questions go STRAIGHT to the brain — never smartass-
+    #     deflected while a model is reachable. Factual answers skip the
+    #     groundedness gate (correct math shares no words with the question).
+    if _is_knowledge_question(boyfriend_msg or "") and not NO_LLM:
+        system = build_system_prompt(mood, name, memories, signals, history, recents)
+        if gpt_available():
+            out = gpt_reply(system, boyfriend_msg, history)
+            cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
+            if cleaned and cleaned != last_reply and cleaned not in recents:
+                return cleaned, f"gpt-{GPT_MODEL}"
+        if USE_OLLAMA and ollama_available():
+            out = ollama_reply(system, boyfriend_msg)
+            cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
+            if cleaned and cleaned != last_reply and cleaned not in recents:
+                return cleaned, f"ollama-{LLM_MODEL}"
+        # offline / brain failed: templates answer below (smartass bank)
     # 2) MAIN AI: GPT-4o-mini (memories + recent conversation included).
     #    Wins only if grounded (proven it listened) — else the echo template.
     if not NO_LLM and gpt_available():

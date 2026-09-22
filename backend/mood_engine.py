@@ -30,6 +30,7 @@ AFFECTION_WORDS = {
 
 RUDE_WORDS = {
     "hate": -4, "hate you": -2.5, "hate u": -2.5, "stupid": -4, "idiot": -4, "dumb": -3.5,
+    "fuck off": -4, "fuck you": -4,
     "shut up": -4, "shutup": -4, "annoying": -3, "ugly": -4,
     "boring": -2.5, "blah": -1.5, "whatever": -2.5,
     "leave me": -3, "go away": -3.5, "don't care": -3, "dont care": -3,
@@ -91,6 +92,9 @@ EXPLICIT_PATTERNS = [
     r"touch me", r"kiss me .*all over", r"take me\b(?!\s+seriously)",
     r"(you look|you are|you're|\bur\b|\bu r\b).{0,15}(so hot|sexy)",
     r"(so hot|sexy).{0,10}(you|baby|jaan|babe)\b", r"turn me on",
+    r"have sex", r"lets fuck|let us fuck|wanna fuck|fuck me",
+    r"\b69\b", r"blowjob", r"handjob", r"\bpussy\b", r"\bdick\b",
+    r"\bcum\b", r"orgasm", r"make out", r"you('re|r| are) hot\b",
 ]
 WHOLESOME_INTIMACY = ["cuddle", "forehead kiss", "hold my hand", "holding hands",
                       "hug from behind", "slow dance", "stargaz", "head on.*shoulder",
