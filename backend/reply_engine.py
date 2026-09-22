@@ -24,20 +24,22 @@ except Exception:
     pass
 
 NO_LLM = os.environ.get("PRIYA_NO_LLM") == "1"
-# Ollama fallback model. PRIYA_MODEL wins (e.g. qwen2.5:1.5b).
+# Local brain: Ollama model. 0.5b answers warm in ~1.5s and is genuinely
+# relevant; 1.5b thinks deeper but needs 6-12s on CPU (PRIYA_MODEL for that).
+# Pick via PRIYA_MODEL. Disable: PRIYA_NO_LLM=1.
 LLM_MODEL = os.environ.get("PRIYA_MODEL", "qwen2.5:0.5b")
 # MAIN AI = GPT-4o-mini class. PRIYA_GPT_MODEL wins, else gpt-4o-1 (your pick).
 # NOTE: lab-wide OPENAI_MODEL is intentionally NOT used here — you asked for 4o-mini.
 GPT_MODEL = os.environ.get("PRIYA_GPT_MODEL", "gpt-4o-1")
 GPT_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 GPT_ENDPOINT = (os.environ.get("OPENAI_ENDPOINT", "") or "").rstrip("/")
-LLM_TIMEOUT = float(os.environ.get("PRIYA_LLM_TIMEOUT", "8"))
+LLM_TIMEOUT = float(os.environ.get("PRIYA_LLM_TIMEOUT", "10"))
 GPT_TIMEOUT = float(os.environ.get("PRIYA_GPT_TIMEOUT", "12"))
 GPT_COOLDOWN = float(os.environ.get("PRIYA_GPT_COOLDOWN", "600"))
-# Ollama local fallback is opt-in (PRIYA_OLLAMA=1) when a GPT key exists,
-# otherwise every novel message pays GPT-fail + Ollama-hang (~9s). With no
-# GPT key at all, Ollama stays on (offline mode).
-USE_OLLAMA = os.environ.get("PRIYA_OLLAMA", "0") == "1" or not GPT_API_KEY
+# Ollama local brain is ON by default wherever Ollama runs (local machine).
+# GPT-key machines still try GPT first (breaker skips it fast when dead).
+# Disable: PRIYA_OLLAMA=0. Vercel has no Ollama, so it's templates there.
+USE_OLLAMA = os.environ.get("PRIYA_OLLAMA", "1") == "1"
 _gpt_client = None
 _gpt_fails = 0
 _gpt_dead_until = 0.0
@@ -706,6 +708,23 @@ QUESTION_FOLLOWUP = [
     "wait wait, back up 😅 what happened?",
 ]
 
+# grounded fallback frames — always built from HIS words, so she can never
+# sound random. Warm moods curious, cold moods dry. {snip} = his topic echo.
+ECHO_FRAMES_WARM = [
+    "{snip}?? 👀 ooh tell me more?",
+    "wait, {snip}?? 😲 go on!!",
+    "aww, {snip} 🥺 tell me everything?",
+    "haha {snip} 😭 classic. then what?",
+    "{snip}... I'm listening 🥺 continue?",
+    "omg {snip}?? 👀 I need details!!",
+]
+ECHO_FRAMES_COLD = [
+    "{snip}?? 🙄 and?",
+    "yeah? {snip}... go on 🙄",
+    "{snip}. cool. what else 😒",
+    "mhm, {snip} 🙄 continue",
+]
+
 # stories / statements (i did X, we should Y, my day...) — engage, don't random-flirt
 STORY_ENGAGED = [
     "wait really?? 😲 tell me everything!!",
@@ -863,6 +882,18 @@ SORE_NICKS = {
 
 
 def nickname(memories, mood: str = "neutral") -> str:
+    found = memory_nick_or_none(memories, mood)
+    if found:
+        return found
+    # sweet moods deserve a sweet fallback
+    if mood in ("romantic", "happy", "playful"):
+        return "our rainy first date"
+    return FALLBACK_NICK
+
+
+def memory_nick_or_none(memories, mood: str = "neutral") -> str | None:
+    """Nickname ONLY when a retrieved memory genuinely matches — None otherwise.
+    The fallback must never invent memory vibes for unrelated messages."""
     for m in memories or []:
         t = (m.get("text", "") or "").lower()
         for key, nick in NICKNAMES:
@@ -870,10 +901,7 @@ def nickname(memories, mood: str = "neutral") -> str:
                 if mood in ("romantic", "happy", "playful") and nick in SORE_NICKS:
                     continue  # don't drag fights into sweet moments
                 return nick
-    # sweet moods deserve a sweet fallback
-    if mood in ("romantic", "happy", "playful"):
-        return "our rainy first date"
-    return FALLBACK_NICK
+    return None
 
 
 def cap(s: str) -> str:
@@ -1016,6 +1044,7 @@ def _snippet(msg: str, max_words: int = 4) -> str:
         "today", "yesterday", "tomorrow", "day", "time", "thing", "things",
         "really", "just", "quite", "much", "many", "some", "there", "here",
         "then", "than", "also", "even", "still", "back", "every",
+        "hmm", "hm", "ok", "k", "know", "uhh", "uhm", "well", "like",
     }
     words = [w for w in re.findall(r"[a-z']+", (msg or "").lower()) if w not in skip]
     if not words:
@@ -1148,8 +1177,8 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         # he's mad AT her — concerned, never flirty or defensive
         if re.search(r"\bmad at (you|u)\b|\bangry at (you|u)\b|\bangry with (you|u)\b|naraz (ho|hun|hu)\b", low):
             return _pick_unique(MAD_REPLIES, last_reply, recents)
-        # money talk — tease it
-        if re.search(r"\bmoney\b|send me.*(money|cash|rs|₹)|broke|no money|paisa|pocket money|loan", low):
+        # money talk — tease it (but "broke/break down" a car is NOT about money)
+        if re.search(r"\bmoney\b|send me.*(money|cash|rs|₹)|broke(?! down)|no money|paisa|pocket money|loan", low):
             if mood not in ("angry", "upset"):
                 return _pick_unique(TEASE_MONEY_REPLIES, last_reply, recents)
         # factual/math questions — playful smartass, not flirty-nonsense
@@ -1313,14 +1342,20 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
                     cands.append(_pick_unique(STORY_ENGAGED, last_reply, recents + cands))
                 out = _pick_best(cands, msg, last_reply, recents, history)
                 return _clip(out.format(nick=nick, nick_cap=cap(nick), name=name or "babe"))
-        # short statements (i did X, we should Y, my day was...): engage
+        # short statements (i did X, we should Y, my day was...): engage.
+        # Third candidate echoes HIS words instead of a random mood line.
         if re.search(r"\b(i (had|did|saw|met|went|got|feel|felt|think|want)|we (got|should|will|had|need)|my day|today i)\b", low):
             if mood not in ("angry",):
+                snip = _snippet(msg)
+                echo = f"{snip}?? 👀 ooh tell me more?" if snip != "that" else None
                 cands = [
                     _pick_unique(STORY_ENGAGED, last_reply, recents),
                     _pick_unique(STORY_ENGAGED, last_reply, recents),
-                    _pick_unique(REPLIES.get(mood, REPLIES["neutral"]), last_reply, recents),
                 ]
+                if echo:
+                    cands.append(echo)
+                else:
+                    cands.append(_pick_unique(STORY_ENGAGED, last_reply, recents + cands))
                 return _pick_best(cands, msg, last_reply, recents, history)
 
     scenario = _pick_scenario(signals, last_reply, recents)
@@ -1332,13 +1367,26 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if out == last_reply and len(REPLIES.get(mood, [])) > 1:
             out = random.choice(REPLIES.get(mood, REPLIES["neutral"]))
     else:
-        # THINK-THRICE fallback: 3 candidates ranked by relevance — never blind random.
-        # Candidate 1: mood bank (personality), 2: engaged story (curiosity),
-        # 3: memory-grounded (relationship). Best word-overlap wins.
-        c1 = _pick_unique(REPLIES.get(mood, REPLIES["neutral"]), last_reply, recents)
-        c2 = _pick_unique(STORY_ENGAGED, last_reply, recents + [c1])
-        c3 = f"aww 🥺 {nick} vibes... tell me more?" if mood in ("romantic", "happy", "playful") else _pick_unique(ACK_REPLIES, last_reply, recents + [c1, c2])
-        out = _pick_best([c1, c2, c3], msg or "", last_reply, recents, history)
+        # GROUNDED fallback: built from HIS words every time — random lines are
+        # banned here. Echo his topic with rotating frames (never repeats thanks
+        # to recents-dedup); memory nicknames only on genuine memory overlap.
+        snip = _snippet(msg or "")
+        warm = mood in ("romantic", "happy", "playful")
+        if snip != "that":
+            frames = ECHO_FRAMES_WARM if warm else ECHO_FRAMES_COLD
+            cands = [f.format(snip=snip) for f in frames]
+            real_nick = memory_nick_or_none(memories, mood)
+            if real_nick:
+                cands.append(f"aww 🥺 {real_nick} vibes... tell me more?")
+            out = _pick_best(cands, msg or "", last_reply, recents, history)
+        elif warm:
+            real_nick = memory_nick_or_none(memories, mood)
+            if real_nick:
+                out = f"aww 🥺 {real_nick} vibes... tell me more?"
+            else:
+                out = _pick_unique(QUESTION_FOLLOWUP, last_reply, recents)
+        else:
+            out = _pick_unique(ACK_REPLIES, last_reply, recents)
 
     out = out.format(nick=nick, nick_cap=cap(nick), name=name or "babe")
     if mood in ("angry", "upset") and signals.get("rude_hits") and random.random() < 0.4:
@@ -1349,7 +1397,14 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
 def _clip(text: str, max_words: int = 30) -> str:
     words = text.split()
     if len(words) > max_words:
-        text = " ".join(words[:max_words]).rstrip(".,!?") + "…"
+        cut = " ".join(words[:max_words])
+        # end at a real sentence boundary when one exists past halfway,
+        # instead of cutting mid-thought ("...so I…")
+        ends = [mm.end() for mm in re.finditer(r"[.!?…](?=\s|$)", cut)]
+        use = [e for e in ends if e > len(cut) // 2]
+        if use:
+            return cut[:use[-1]].strip()
+        text = cut.rstrip(".,!?") + "…"
     return text
 
 
@@ -1361,6 +1416,10 @@ ASSISTANT_ISMS = [
     "feel free", "ask me anything", "homework", "let's plan our",
     "plan our evening", "brunch", "how can i help", "i'm here to help",
     "i don't have feelings", "i cannot feel", "as a girlfriend ai",
+    "stay tuned", "for more updates", "hope this helps", "breaking news",
+    "thanks for watching", "don't forget to", "smash that",
+    "keep up the good work", "it seems like", "sounds like you",
+    "as your girlfriend, i", "as your friend,",
 ]
 
 MOOD_STYLE_SHORT = {
@@ -1378,23 +1437,22 @@ def build_system_prompt(mood: str, name: str, memories, signals=None,
                         history=None, recents=None) -> str:
     style = MOOD_STYLE_SHORT.get(mood, "calm")
     mem_lines = "\n".join(
-        f"- {m.get('text', '')[:100]}" for m in (memories or [])[:3]
+        f"- {m.get('text', '')[:60]}" for m in (memories or [])[:2]
     ) or "- (no memories yet)"
-    hist_lines = "\n".join(
-        f"{'Him' if i % 2 == 0 else 'You'}: {(t.get('bf') or t.get('gf') or '')[:80]}"
-        for i, t in enumerate((history or [])[-4:])
-    ) or "- (fresh conversation)"
+    hist_bit = ""
+    if history:
+        t = history[-1]
+        hist_bit = f"Last exchange — Him: {(t.get('bf') or '')[:60]} / You: {(t.get('gf') or '')[:60]}\n"
     avoid = ""
     if recents:
-        avoid = ("NEVER repeat these lines you already sent: "
-                 + " | ".join(f'"{r[:50]}"' for r in recents[-3:]) + "\n")
+        avoid = ("NEVER repeat: " + " | ".join(f'"{r[:35]}"' for r in recents[-1:]) + "\n")
     sig_line = ", ".join(k for k, v in (signals or {}).items() if v is True) or "none"
     return (
         f"You are Priya, a 20yo girl texting her boyfriend {name or 'babe'} on WhatsApp. "
         f"You are deeply in love with him. Right now you feel: {mood} ({style}). "
         f"Detected in his message: {sig_line}.\n"
         f"Things you remember about you two (weave in ONLY if relevant, never list):\n{mem_lines}\n"
-        f"Recent chat (his last messages + your replies, in order):\n{hist_lines}\n"
+        f"{hist_bit}"
         f"{avoid}"
         f"RULES: max 25 words, 1-2 short sentences, casual texting style, a few emojis ok. "
         f"React to WHAT HE JUST SAID, in light of the recent chat above. "
@@ -1514,7 +1572,7 @@ def ollama_reply(system: str, user_msg: str, model: str = None) -> str | None:
         return None
 
 
-def clean_llm(text: str, signals=None) -> str | None:
+def clean_llm(text: str, signals=None, msg: str = "") -> str | None:
     """Post-process model output. Returns None if it still smells like a bot."""
     if not text:
         return None
@@ -1523,9 +1581,20 @@ def clean_llm(text: str, signals=None) -> str | None:
     t = re.sub(r"^\[[^\]]*\]\s*(\([^)]*\)\s*:?\s*)?", "", t)  # echo headers
     t = re.sub(r"^Priya\s*:\s*", "", t, flags=re.IGNORECASE).strip().strip('"').strip()
     t = re.sub(r"^,+", "", t).strip()
+    t = re.sub(r"@\w+[,]?\s*", "", t).strip()  # @mentions (@Arjun,) — she texts, not tweets
+    t = re.sub(r"^(?:[:;]-?[)D(Pp(\[]|¯\\_\(ツ\)_/¯)\s*", "", t).strip()  # leading :) ;-) etc.
+    # emoji spam: collapse runs (🚨🚨🚨→🚨🚨), reject showers (>5 emojis)
+    t = re.sub(r"(.)\1{2,}", r"\1\1", t)
+    if sum(1 for c in t if c in "❤️💖💕😘🥰😍💋🤗✨🌹💍😭😲👀🥺💔🌙😌😏💅📸📱😅😔😒🙄😑😡😤⭐🦋🌸🌧️🍜💸🎉😬🤪😦🚨😊💓🦋") > 6:
+        return None
     low = t.lower()
     if any(b in low for b in ASSISTANT_ISMS):
         return None
+    # parrot guard: restating HIS message is not a reply
+    if msg:
+        mw, cw = _content_words(msg), _content_words(t)
+        if mw and cw and len(mw & cw) / max(1, len(mw)) > 0.6:
+            return None
     # role-reversal guard: SHE apologizes only if HE apologized first
     sig = signals or {}
     if not (sig.get("apology") or sig.get("repair")):
@@ -1537,6 +1606,33 @@ def clean_llm(text: str, signals=None) -> str | None:
     if len(t.split()) > 45 or len(t) < 2:
         return None
     return _clip(t)
+
+
+LLM_EMOTION_MARKERS = (
+    "proud", "congrats", "wow", "woah", "omg", "haha", "yay", "yess",
+    "damn", "aww", "phew", "yay", "no way", "shut up", "stoppp",
+)
+
+
+def llm_is_grounded(cleaned: str, msg: str) -> bool:
+    """An LLM reply wins over the echo-template only if it proves it listened:
+    shares a content word with HIS message, carries genuine emotion, or is a
+    short punchy reaction. Bland lines ("I'm glad to hear that! How are you
+    feeling today?") and generic questions with zero overlap lose — the echo
+    template answers those better."""
+    if not cleaned or not msg:
+        return False
+    overlap = _content_words(cleaned) & _content_words(msg)
+    if overlap:
+        return True
+    low = cleaned.lower()
+    if low.rstrip().endswith("?"):
+        return False  # generic question, no grounding — echo wins
+    if any(m in low for m in LLM_EMOTION_MARKERS):
+        return True
+    if len(cleaned.split()) <= 8 and any(c in cleaned for c in ("!", "🥺", "❤️", "😭", "😲")):
+        return True  # short punchy reaction
+    return False
 
 
 def is_explicit_request(text: str) -> bool:
@@ -1590,35 +1686,26 @@ def generate_reply(mood: str, boyfriend_name: str, boyfriend_msg: str,
                                last_topic=last_topic, history=history),
                 "template-fastpath")
     # 2) MAIN AI: GPT-4o-mini (memories + recent conversation included).
-    #    Think-twice: GPT candidate must beat the smart-template candidate
-    #    on relevance, else we keep the grounded template (fast + in-sync).
+    #    Wins only if grounded (proven it listened) — else the echo template.
     if not NO_LLM and gpt_available():
         system = build_system_prompt(mood, name, memories, signals, history, recents)
         out = gpt_reply(system, boyfriend_msg, history)
-        cleaned = clean_llm(out or "", signals)
-        if cleaned and cleaned != last_reply and cleaned not in recents:
-            tpl = template_reply(mood, name, memories, signals=signals, msg=boyfriend_msg,
-                                 last_reply=last_reply, recents=recents,
-                                 last_topic=last_topic, history=history)
-            best = _pick_best([cleaned, tpl], boyfriend_msg or "", last_reply, recents, history)
-            if best == cleaned:
-                return cleaned, f"gpt-{GPT_MODEL}"
-    # 3) offline fallback: Ollama (local tiny model) — only when GPT is not
-    #    configured or explicitly opted in via PRIYA_OLLAMA=1. Otherwise it just
-    #    adds ~8s hang per novel message for worse replies than templates.
+        cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
+        if (cleaned and cleaned != last_reply and cleaned not in recents
+                and llm_is_grounded(cleaned, boyfriend_msg or "")):
+            return cleaned, f"gpt-{GPT_MODEL}"
+    # 3) Local brain: warm Ollama thinks for novel messages (templates already
+    #    handled exact moments + small-talk above, so anything reaching here
+    #    genuinely needs understanding). Grounded replies win, bland ones fall
+    #    through to the echo safety net.
     if not NO_LLM and USE_OLLAMA and ollama_available():
         system = build_system_prompt(mood, name, memories, signals, history, recents)
         out = ollama_reply(system, boyfriend_msg)
-        cleaned = clean_llm(out or "", signals)
-        if cleaned and cleaned != last_reply and cleaned not in recents:
-            tpl = template_reply(mood, name, memories, signals=signals, msg=boyfriend_msg,
-                                 last_reply=last_reply, recents=recents,
-                                 last_topic=last_topic, history=history)
-            best = _pick_best([cleaned, tpl], boyfriend_msg or "", last_reply, recents, history)
-            if best == cleaned:
-                return cleaned, f"ollama-{LLM_MODEL}"
-            return tpl, "template-beats-llm"
-    # 4) safety net: smart template engine (topic-aware + relevance-ranked)
+        cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
+        if (cleaned and cleaned != last_reply and cleaned not in recents
+                and llm_is_grounded(cleaned, boyfriend_msg or "")):
+            return cleaned, f"ollama-{LLM_MODEL}"
+    # 4) safety net: grounded template engine (word-echo, never random)
     return (template_reply(mood, name, memories, signals=signals, msg=boyfriend_msg,
                            last_reply=last_reply, recents=recents,
                            last_topic=last_topic, history=history),

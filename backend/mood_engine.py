@@ -54,7 +54,7 @@ CONFLICT_WORDS = {
     "give up on us": -3.0, "over between us": -3.0,
     "mad at you": -3.0, "angry at you": -3.0, "angry with you": -3.0,
     "divorce": -3.5, "don't love": -3.0, "dont love": -3.0,
-    "money": -1.0, "broke": -1.0, "fight": -1.0, "argue": -1.0, "argument": -1.2,
+    "money": -1.0, "dead broke": -1.0, "flat broke": -1.0, "broke af": -1.0, "fight": -1.0, "argue": -1.0, "argument": -1.2,
     "sorry but": -0.5, "not sorry": -2.0, "my fault but": -0.5,
 }
 
