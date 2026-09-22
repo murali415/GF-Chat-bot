@@ -709,6 +709,14 @@ SHORT_FRAG = [
     "haha okay... I hear you 😌",
     "mhm, I'm listening 🙂",
     "take your time, I'm here 🥺",
+    "ooh, suspense 😌 go on?",
+    "and then? 👀 don't stop now",
+    "haha I love how you talk 😭❤️ continue?",
+    "say more, I'm all ears 🥺",
+    "mmhmm? 👀 story time?",
+    "you've got my full attention 😌",
+    "go on, I'm curious now 🥺",
+    "hehe, that pause... say it 😌",
 ]
 
 # general questions she can't answer factually — stay curious, reference HIS words
