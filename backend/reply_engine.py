@@ -626,6 +626,29 @@ MISSED_EVENT_REPLIES = [
     "I'm really sorry I wasn't there 🥺 next time, pakka promise",
 ]
 
+# "what do you do" — she answers cute, never random-memory
+DOING_ME_REPLIES = [
+    "text my favorite boy, what else 😌❤️ you?",
+    "currently? falling for you harder 🥺 wyd?",
+    "college + missing you full-time 😌❤️ you tell me?",
+    "waiting for your texts, obviously 🥺",
+]
+
+# "where do you live" — cheesy-cute, always
+WHERE_LIVE_REPLIES = [
+    "in your heart 😌❤️ rent-free, obviously",
+    "wherever you are 🥺 that's home",
+    "a little too far from you 😔 come closer?",
+    "close enough to miss you daily 🥺",
+]
+
+# "do you work / study" — cute + ask back
+WORK_STUDY_REPLIES = [
+    "college by day, professional girlfriend by night 😌❤️ you?",
+    "studying... mostly studying YOU 😌 what about you?",
+    "work + missing you simultaneously. multitasking queen 😌",
+]
+
 # "tell me a joke / make me laugh" — cute dodges + tiny jokes, never random
 JOKE_REPLIES = [
     "okay okay... why did I fall for you? because you're an idiot 😌❤️",
@@ -1172,17 +1195,20 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"did (you|u) eat|had (lunch|dinner|breakfast|your)|khana|\bkha|eat something|(lunch|dinner) (done|kar|kiya|ho gaya)", low):
             if mood not in ("angry", "upset"):
                 return _pick_unique(FOOD_REPLIES, last_reply, recents)
-        if re.search(r"\b(tired|tiring|exhausted|exhausting|stressed|stressful|hectic|tension|sad|depressed|headache|fever|crying|bad day|worst day|tough day|long day|can't sleep|neend|nervous|scared|fear|darr)\b|rula|cried|\bcry\b|bakwas|dhokha|\bugly\b|tired of|rona\b|periods?|dard|\bpain\b|wish me luck|overthinking", low):
+        if re.search(r"\b(tired|tiring|exhausted|exhausting|stressed|stressful|hectic|tension|sad|depressed|headache|fever|crying|bad day|worst day|tough day|long day|can't sleep|neend|nervous|scared|fear|darr)\b|rula|cried|\bcry\b|bakwas|dhokha|\bugly\b|tired of|rona\b|periods?|dard|\bpain\b|wish me luck|overthinking"
+                      r"|went (really |so )?bad|failed|failure|flunked|flunk|backlog|atkt|suppli", low):
             if mood not in ("angry",):
                 return _pick_unique(COMFORT_REPLIES, last_reply, recents)
-        if re.search(r"promotion|good news|achha gaya|acha gaya|accha gaya|selected|pass ho|\bwon\b|jeet|mil gayi?!|kamaal|congrat|party .*(mila|hua)|increment", low):
+        if re.search(r"promotion|promoted|good news|achha gaya|acha gaya|accha gaya|selected|pass ho|\bwon\b|jeet|mil gayi?!|kamaal|congrat|party .*(mila|hua)|increment|hike|appraisal|new job|offer letter", low):
             if mood not in ("angry", "upset"):
                 return _pick_unique(CELEBRATE_REPLIES, last_reply, recents)
         if re.search(r"\b(busy|work|meeting|office|study|exam)\b", low) and \
                 re.search(r"\b(have|got|have to|need to|busy|tomorrow|today|late|kal)\b", low):
             # narratives about work ("what happened in the office today") are
             # STORIES, not scheduling — never answer those with a busy-brush.
-            if mood not in ("angry", "upset") and not is_story(msg):
+            # Venting ("exam went bad") is COMFORT, handled above — also skip.
+            if mood not in ("angry", "upset") and not is_story(msg) \
+                    and not re.search(r"\b(bad|worst|terrible|failed|fail|flunk|sad|cry|tough|guilt)\b", low):
                 return _pick_unique(BUSY_REPLIES, last_reply, recents)
         if "plan" in low and any(w in low for w in ("today", "tonight", "tomorrow", "weekend", "sunday")):
             if mood not in ("angry", "upset"):
@@ -1231,6 +1257,18 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"\bi'?m bored\b|i am bored|bore ho raha|nothing to do|so boring today|boring (day|evening)", low):
             if mood not in ("angry", "upset"):
                 return _pick_unique(BORED_REPLIES, last_reply, recents)
+        # "what do you do" — answers cute, never random-memory
+        if re.search(r"what do (you|u) do\b|what are you upto|\bwud\b", low):
+            if mood != "angry":
+                return _pick_unique(DOING_ME_REPLIES, last_reply, recents)
+        # "where do you live" — cheesy-cute, always
+        if re.search(r"where do (you|u) (live|stay)|where are you from|which city|where do you put up", low):
+            if mood != "angry":
+                return _pick_unique(WHERE_LIVE_REPLIES, last_reply, recents)
+        # "do you work / study" — cute + asks back
+        if re.search(r"\bdo you (work|study)\b|\bdo u (work|study)\b|which college|what do you study", low):
+            if mood != "angry":
+                return _pick_unique(WORK_STUDY_REPLIES, last_reply, recents)
         # vague follow-ups that need HISTORY ("what does that mean", "why?", "really?")
         if re.search(r"what does that mean|what do you mean|means\?|why\?*$|really\?*$|seriously\?*$|sachi\?*$", low):
             if history:
@@ -1519,7 +1557,9 @@ def _is_simple_question(text: str) -> bool:
         r"|\bgood\s*(night|morning)\b|\bi miss (you|u)\b|call (me|na)"
         r"|did (you|u) eat|had (lunch|dinner)"
         r"|tell me a joke|make me laugh|favorite|favourite|do you like"
-        r"|\bbored\b|go for a (walk|drive|coffee|chai)|come over|lets meet",
+        r"|\bbored\b|go for a (walk|drive|coffee|chai)|come over|lets meet"
+        r"|what do (you|u) do|where do you live|do you (work|study)"
+        r"|promoted|failed|went bad|new job",
         low))
 
 
