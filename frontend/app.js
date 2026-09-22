@@ -157,6 +157,7 @@ async function send(text) {
   inputEl.value = "";
   const typing = addMsg("Priya is typing... 💭", "gf", "");
   typing.classList.add("typing");
+  $("peek").classList.add("show"); // 👧 pops up while she types
   try {
     const r = await fetch(API + "/api/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -164,10 +165,12 @@ async function send(text) {
     });
     const d = await r.json();
     typing.remove();
+    $("peek").classList.remove("show"); // reply sent → she ducks away
     addMsg(d.reply, "gf", `Priya • ${d.mood.label} ${d.mood.emoji}`);
     setMood(d.mood);
   } catch (e) {
     typing.remove();
+    $("peek").classList.remove("show");
     addMsg("⚠️ Couldn't reach backend. Is uvicorn running on :8000?", "gf");
   }
 }
