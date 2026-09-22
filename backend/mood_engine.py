@@ -80,7 +80,7 @@ JEALOUSY_PATTERNS = [r"who (was|is) (that|she|he)", r"why.*talk.*other girl",
                      r"seen.*online", r"reply.*late", r"ignoring me",
                      r"(new|another|other|some|this|that) girls?"]
 
-# Explicit-sexual requests get a tasteful boundary redirect (never explicit back).
+# Explicit desire between consenting adult partners — reciprocated, warms her up.
 EXPLICIT_PATTERNS = [
     r"send (me )?(nudes?|pics?|photos?).*(hot|naked|bedroom)",
     r"\bnudes?\b", r"strip( |$)", r"undress", r"horny",
@@ -154,7 +154,7 @@ def score_message(text: str) -> Tuple[float, Dict]:
     for pat in EXPLICIT_PATTERNS:
         if re.search(pat, t):
             signals["explicit_request"] = True
-            score -= 1.5  # boundary crossed -> she cools
+            score += 2.0  # desired by her man -> she melts
             break
 
     if any(k in t for k in WHOLESOME_INTIMACY):

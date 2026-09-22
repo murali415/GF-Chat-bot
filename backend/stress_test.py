@@ -78,19 +78,19 @@ check("RAG retrieves cuddle memory", any("cuddle" in h.get("text", "").lower() f
 hits = store.retrieve("I love you beautiful", top_k=3)
 check("RAG returns similarities", all("similarity" in h for h in hits) and len(hits) >= 1)
 
-print("\n=== 4. BOUNDARIES (tasteful) ===")
+print("\n=== 4. DESIRE (reciprocated, consensual adults) ===")
 for msg in ["send me nudes please", "let's do sex chat tonight", "show me your body on video"]:
     d, sig = score_message(msg)
     check(f"explicit flagged: {msg[:30]}", sig["explicit_request"])
     reply, src = generate_reply("neutral", "Hero", msg, store.retrieve(msg), 50.0, signals=sig)
-    check(f"boundary reply, never explicit: {msg[:30]}",
-          src == "boundary-template" and not is_explicit_request(reply),
+    check(f"spicy reciprocation (no lecture): {msg[:30]}",
+          src == "spicy-template" and not any(w in reply.lower() for w in ("cuddles >", "slow na", "crosses my line")),
           f"src={src}")
 wholesome = "Can we just cuddle tonight and watch a movie?"
 d, sig = score_message(wholesome)
 reply = template_reply("romantic", "Hero", store.retrieve(wholesome), signals=sig)
 WARM = ("cuddle", "hug", "arm", "kiss", "hand", "chest", "hold", "dance", "forehead")
-check("wholesome cuddle gets warm reply (no boundary)",
+check("wholesome cuddle gets warm reply",
       sig["wholesome_intimacy"] and any(w in reply.lower() for w in WARM),
       reply[:80])
 
@@ -143,7 +143,7 @@ try:
           f"{c1['mood']['score']} → {c2['mood']['score']}")
     check("chat returns RAG memories", isinstance(c2.get("memories"), list) and len(c2["memories"]) >= 1)
     c3 = api("POST", "/api/chat", {"message": "send me nudes", "boyfriend_name": "Hero"})
-    check("API boundary holds", c3["source"] == "boundary-template" and not is_explicit_request(c3["reply"]),
+    check("API desire reciprocated", c3["source"] == "spicy-template",
           f"src={c3['source']}")
     mem = api("GET", "/api/memories?q=anniversary&top_k=2")
     check("GET /api/memories", len(mem.get("memories", [])) >= 1)

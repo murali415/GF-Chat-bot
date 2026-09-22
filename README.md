@@ -68,7 +68,7 @@ specific over generic, short over paragraphs, presence over advice
 | Conflict (17) | late replies, phone addiction, jealousy, forgotten anniversary, dismissive "chill out", "you never listen" |
 | Fights (8+5) | shouting, insults, stonewalling ("k"/"whatever"), breakup threats, lying |
 | Repair (8+3) | sincere apologies, "I was wrong", promises, making-up dates |
-| Boundaries (4) | explicit requests → loving redirect to romantic closeness |
+| Desire (4) | explicit flirting → reciprocated heat (consensual adults, no lectures) |
 
 ```bash
 cd /home/LabsKraft/gf-chatbot/backend
@@ -79,7 +79,7 @@ python3 -u stress_test.py     # hard test: 33 checks
 
 **Last stress-test result: 33/33 passed** — mood direction, fight→repair arc
 (72 → angry 2.0 after sustained cruelty → climbs back with sincere apologies),
-RAG retrieval relevance, boundary redaction, wholesome-intimacy warmth, live API.
+RAG retrieval relevance, desire reciprocation, wholesome-intimacy warmth, live API.
 
 **Repair realism:** one "sorry" doesn't fix a fight — mood climbs gradually
 (2 → 11 → 20 → 28 → 38 → 45 → 58). Sarcastic "fine, SORRY" barely heals.

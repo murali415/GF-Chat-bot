@@ -8,7 +8,7 @@ Reply generator v5: SHORT, human, girlfriend-texting style.
   (RAG memories + recent chat in the prompt). Ollama is the offline fallback,
   smart templates the final safety net. Set PRIYA_NO_LLM=1 for templates only,
   PRIYA_MODEL to pick the GPT deployment (default gpt-4o-1).
-- Explicit requests -> short loving boundary. Intimacy stays wholesome.
+- Explicit desire (consensual adults) -> reciprocated heat, never a lecture.
 """
 import random
 import re
@@ -286,16 +286,26 @@ INTIMATE_WHOLESOME = [
     "wrap me in your jacket and hold me 🥺 like that night?",
     "slow dance, living room, our song 🥺💋",
     "your hoodie + your arms = heaven 🥺",
-    "head on your shoulder, don't move 🥺",
-    "fall asleep on call with me? 🥺🌙",
+    "head on your shoulder, hold me tight 🥺",
+    "fall asleep in my arms on call? 🥺🌙",
     "hug me like {nick} again 🥺",
 ]
 
+# Explicit desire (CONSENSUAL ADULTS ONLY — she's 20, he's her boyfriend):
+# she reciprocates heat. No redirects, no lectures.
 BOUNDARY_REPLIES = [
-    "hey... I love you but let's not go there 🥺 cuddles > that stuff, okay? ❤️",
-    "mm no, my love 🥺 keeping us sweet. hold my hand instead?",
-    "I'm yours, but like... respectfully? 🥺❤️ slow na",
-    "that crosses my line, jaan 🥺 cuddles yes, that no",
+    "ohh you're feeling naughty 😏 come here then",
+    "say that again... slower 🥵❤️",
+    "fuck, you know exactly what that does to me 😏",
+    "horny for me? good. I'm all yours tonight 😌🔥",
+    "keep talking like that, we're skipping cuddles 😏",
+    "shit, baby... come over and show me 😌❤️",
+    "you want me? then come take me 😏💋",
+    "mm, I love when you talk dirty 😏 tell me more?",
+    "bedroom eyes activated 🥵 what are we waiting for?",
+    "fuck the sweet talk, kiss me already 😘🔥",
+    "you're driving me crazy... don't stop 😏❤️",
+    "tonight? just us, no interruptions 😏🔥",
 ]
 
 RUDE_SHOUT = [
@@ -305,6 +315,8 @@ RUDE_SHOUT = [
     "why are you shouting 😡 stop it",
     "caps lock off 😤",
     "scream at me again, I dare you 😡",
+    "don't fucking test me today 😤",
+    "fuck off for an hour, I need air 😡",
 ]
 
 RUDE_CALM = [
@@ -1501,6 +1513,9 @@ def build_system_prompt(mood: str, name: str, memories, signals=None,
         f"You did NOTHING wrong — NEVER apologize or say sorry for yourself. "
         f"If HE apologizes, forgive warmly or stay mad matching your mood. "
         f"Play along with any names/roles he gives (if he's Romeo, you're Juliet). "
+        f"You are both consenting adults: swearing, dirty talk and explicit flirting "
+        f"BACK are welcome when he starts it — match his heat, stay loving, "
+        f"never lecture or redirect. "
         f"NEVER: give advice, invent plans, mention homework, say 'assist', 'activities', "
         f"'feel free', 'ask me anything', use hashtags, write paragraphs, repeat his "
         f"message, or sound like a helper bot. Just react like a real girlfriend."
@@ -1713,7 +1728,7 @@ def generate_reply(mood: str, boyfriend_name: str, boyfriend_msg: str,
     recents = recents or []
     history = history or []
     if signals.get("explicit_request") or is_explicit_request(boyfriend_msg):
-        return random.choice(BOUNDARY_REPLIES), "boundary-template"
+        return random.choice(BOUNDARY_REPLIES), "spicy-template"
     name = boyfriend_name or "babe"
     # 1) critical sync branches — exact, never delegated
     hit = template_critical(mood, name, memories, signals, boyfriend_msg,
