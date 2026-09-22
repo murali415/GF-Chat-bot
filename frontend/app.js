@@ -1,5 +1,6 @@
-// Priya frontend — talks to same-origin API (or localhost:8000 fallback)
-const API = window.location.port === "8000" ? "" : "http://localhost:8000";
+// Priya frontend — backend serves both API + this page, so same-origin
+// works everywhere: local uvicorn (:8000) and Vercel.
+const API = "";
 
 const $ = (id) => document.getElementById(id);
 const messagesEl = $("messages"), inputEl = $("input");

@@ -13,13 +13,34 @@ from rag_store import RAGStore
 from reply_engine import generate_reply, detect_topic
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA = os.path.join(BASE, "data")
 FRONTEND = os.path.join(BASE, "frontend")
+
+# Vercel serverless: bundled files are read-only, only /tmp is writable,
+# and Ollama/local models don't exist — templates (+ optional GPT) reply.
+# Local dev keeps using ./data exactly as before.
+IS_VERCEL = bool(os.environ.get("VERCEL"))
+if IS_VERCEL:
+    import shutil
+    DATA = "/tmp/gfdata"
+    os.makedirs(DATA, exist_ok=True)
+    bundled = os.path.join(BASE, "data")
+    # seed memories are bundled read-only — copy once per cold start
+    _seed_src = os.path.join(bundled, "seed_memories.json")
+    if not os.path.exists(os.path.join(DATA, "seed_memories.json")) \
+            and os.path.exists(_seed_src):
+        shutil.copy(_seed_src, DATA)
+    # RAG memory: start from the committed 10k sample (fresh clone each deploy)
+    _conv_dst = os.path.join(DATA, "conversations.json")
+    _sample_src = os.path.join(bundled, "conversations.sample.json")
+    if not os.path.exists(_conv_dst) and os.path.exists(_sample_src):
+        shutil.copy(_sample_src, _conv_dst)
+else:
+    DATA = os.path.join(BASE, "data")
+    os.makedirs(DATA, exist_ok=True)
+
 CONV_PATH = os.path.join(DATA, "conversations.json")
 MOOD_PATH = os.path.join(DATA, "mood.json")
 SEED_PATH = os.path.join(DATA, "seed_memories.json")
-
-os.makedirs(DATA, exist_ok=True)
 
 # seed long-term memories (RAG long-term layer)
 DEFAULT_SEED = [
@@ -47,8 +68,11 @@ if os.path.exists(MOOD_PATH):
 
 
 def save_mood():
-    with open(MOOD_PATH, "w", encoding="utf-8") as f:
-        json.dump(engine.state.__dict__, f, ensure_ascii=False, indent=2)
+    try:
+        with open(MOOD_PATH, "w", encoding="utf-8") as f:
+            json.dump(engine.state.__dict__, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass  # read-only fs (Vercel) — mood just lives in memory
 
 
 def _shutdown_flush():

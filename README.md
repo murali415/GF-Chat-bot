@@ -18,6 +18,19 @@ Or one-liner:
 bash /home/LabsKraft/gf-chatbot/run.sh
 ```
 
+## Deploy on Vercel (live link) 🚀
+
+Push this folder to GitHub, then Vercel Dashboard → **Add New → Project** →
+**Import** the repo. That's it — no build settings needed (`vercel.json`
+routes everything to the FastAPI app, `requirements.txt` installs deps).
+
+Notes:
+- Cloud mode runs template replies (`PRIYA_NO_LLM=1`) over a bundled 10k
+  episode sample (`data/conversations.sample.json`) — no Ollama on Vercel.
+  For GPT brains instead, set `OPENAI_API_KEY` + `OPENAI_ENDPOINT` + unset
+  `PRIYA_NO_LLM` in Vercel → Project → Settings → Environment Variables.
+- Serverless filesystem is ephemeral: chats persist per-instance only.
+
 ## How it works
 
 ```
