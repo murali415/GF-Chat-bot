@@ -103,7 +103,7 @@ REPLIES = {
         "hehehe yesss 🥰 you always know what to say",
         "aww babe!! 🥺💕 that made my whole day",
         "lolll you're so cute, I can't even 😭💕",
-        "yesss tell me more!! I'm all ears 🥰",
+        "yesss I'm all ears 🥰 go on!!",
         "ugh you're the best, you know that?? 💖",
         "this is why you're my favorite person 🥺",
         "hahaha okay I love that 😭💕",
@@ -159,7 +159,7 @@ REPLIES = {
     ],
     "neutral": [
         "hmm okay 🙂 what's on your mind?",
-        "yeah I'm here... tell me more?",
+        "yeah I'm here... I'm listening 🥺",
         "got it. how was your day though?",
         "okayy... and then what happened?",
         "I'm listening 🙂 go on",
@@ -326,7 +326,7 @@ BOUNDARY_REPLIES = [    "ohh you're feeling naughty 😏 come here then",
     "keep talking like that, we're skipping cuddles 😏",
     "shit, baby... come over and show me 😌❤️",
     "you want me? then come take me 😏💋",
-    "mm, I love when you talk dirty 😏 tell me more?",
+    "mm, I love when you talk dirty 😏 keep going?",
     "bedroom eyes activated 🥵 what are we waiting for?",
     "fuck the sweet talk, kiss me already 😘🔥",
     "you're driving me crazy... don't stop 😏❤️",
@@ -656,7 +656,7 @@ FUTURE_REPLIES = [
     "married?? kids?? say less, I'm in 🥺💍",
     "our future?? 🥺 I think about it all the time",
     "kids with you?? they'd be so cute 😭❤️",
-    "future wifey reporting 🥺💕 tell me more",
+    "future wifey reporting 🥺💕 go on!!",
     "you + me + forever?? yes pls 🥺❤️",
     "don't tease me with that future 🥺 I want it",
     "our own little family?? 🥺❤️ my heart",
@@ -855,7 +855,7 @@ STORYTELL_TALES = [
 QUESTION_FOLLOWUP = [
     "hmm?? 😅 explain a little more?",
     "wait, what do YOU think? 😌",
-    "ooh tell me more about that? 👀",
+    "ooh 👀 now I'm curious...",
     "huh?? 😅 give me context na",
     "interesting... go on? 👀",
     "wait wait, back up 😅 what happened?",
@@ -865,7 +865,7 @@ QUESTION_FOLLOWUP = [
 # sound random. Warm moods curious, cold moods dry. {snip} = his topic echo.
 # Mixed questions AND reactions so she doesn't beg "tell me more" every time.
 ECHO_FRAMES_WARM = [
-    "{snip}?? 👀 ooh tell me more?",
+    "{snip}?? 👀 ooh, interesting!",
     "wait, {snip}?? 😲 go on!!",
     "aww, {snip} 🥺 tell me everything?",
     "haha {snip} 😭 classic. then what?",
@@ -892,7 +892,7 @@ STORY_ENGAGED = [
     "no way 😲 I need full details!!",
     "aww 🥺 keep going, I'm listening",
     "that's actually so you 😭❤️ go on",
-    "haha I can picture it 😭 tell me more",
+    "haha I can picture it 😭 continue?",
     "stoppp, I need the full story 😲 spill!!",
     "and?? don't leave me hanging 👀",
     "omg I love your stories 🥺 continue!!",
@@ -900,7 +900,7 @@ STORY_ENGAGED = [
     "this is so interesting, go on 🥺",
     "haha classic you 😭❤️ then what?",
     "I'm fully invested now 👀 keep going",
-    "aww tell me more na 🥺 I wanna hear it all",
+    "aww keep going 🥺 I'm all in",
 ]
 
 HARD_DRY = {"ok", "k", "fine", "hmm", "hm", "whatever",
@@ -1484,8 +1484,9 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"\bdream(ed|t)?\b|sapna", low):
             if mood not in ("angry", "upset"):
                 return _pick_unique(DREAM_REPLIES, last_reply, recents)
-        # direct "i love you" — reciprocate directly (stretched letters too)
-        if re.search(r"\bi (l+o+v+e+|luv|lob) (you+|u+|ya+)\b|love you (so|yaar|na)\b|lob you|ilove you", low):
+        # direct "i love you" — reciprocate directly (stretched letters too,
+        # "i" optional: "love you", "loove you" all count)
+        if re.search(r"(?:\bi\s+)?(l+o+v+e+|luv|lob) (you+|u+|ya+)\b|love you (so|yaar|na)\b|lob you|ilove you", low):
             if mood not in ("angry",):
                 return _pick_unique(LOVE_YOU_REPLIES, last_reply, recents)
         # opinion questions (do you love/miss/like me?) — yes directly.
@@ -1555,13 +1556,13 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if "?" in msg and len(low.split()) >= 3:
             snip = _snippet(msg)
             cands = [
-                f"hmm {_snippet(msg)}?? 😅 tell me more?",
+                f"hmm {_snippet(msg)}?? 😅 go on?",
                 _pick_unique(QUESTION_FOLLOWUP, last_reply, recents),
                 _pick_unique(STORY_ENGAGED, last_reply, recents),
             ]
             # ground one candidate in his actual words
             if snip != "that":
-                cands[0] = f"{snip}?? 👀 ooh tell me more?"
+                cands[0] = f"{snip}?? 👀 ooh, interesting!"
             return _pick_best(cands, msg, last_reply, recents, history)
         # stories / story-time (he narrates his day, an incident, a memory):
         # engage + echo his topic. Runs on the is_story detector, not a tiny
@@ -1584,7 +1585,7 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"\b(i (had|did|saw|met|went|got|feel|felt|think|want)|we (got|should|will|had|need)|my day|today i)\b", low):
             if mood not in ("angry",):
                 snip = _snippet(msg)
-                echo = f"{snip}?? 👀 ooh tell me more?" if snip != "that" else None
+                echo = f"{snip}?? 👀 go on!" if snip != "that" else None
                 cands = [
                     _pick_unique(STORY_ENGAGED, last_reply, recents),
                     _pick_unique(STORY_ENGAGED, last_reply, recents),
@@ -1650,7 +1651,7 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         elif warm:
             real_nick = memory_nick_or_none(memories, mood)
             if real_nick:
-                out = f"aww 🥺 {real_nick} vibes... tell me more?"
+                out = f"aww 🥺 {real_nick}... my favorite us"
             else:
                 out = _pick_unique(QUESTION_FOLLOWUP, last_reply, recents)
         else:
