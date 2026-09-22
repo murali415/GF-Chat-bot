@@ -757,6 +757,14 @@ WHAT_LOVE_REPLIES = [
     "your stupid cute face. that's what 🥺❤️",
 ]
 
+# "what do you say" — asking his take; volley back playfully
+WHAT_SAY_REPLIES = [
+    "my take? you first 😌",
+    "say about what? 😅 give me a topic",
+    "hmm... you tell me first? 👀",
+    "I say... you're cute. your turn 😌❤️",
+]
+
 # "do you work / study" — cute + ask back
 WORK_STUDY_REPLIES = [
     "college by day, professional girlfriend by night 😌❤️ you?",
@@ -1257,8 +1265,9 @@ def template_critical(mood: str, name: str, memories, signals, msg: str,
         return None
     low = msg.lower().strip()
 
-    # "i hate you" — real hurt, never a dismissive clapback (before generic rude)
-    if re.search(r"\bhate (you|u)\b", low):
+    # "i hate you" — real hurt, never a dismissive clapback (before generic rude).
+    # "fuck you" cuts the same deep — same bank.
+    if re.search(r"\bhate (you|u)\b|\bfuck you\b", low):
         return _pick_unique(HURT_REPLIES, last_reply, recents)
 
     # sike / just kidding — relief after breakup tension (before generic rude)
@@ -1387,6 +1396,10 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
                 and low.rstrip(".!?") not in ("wassup", "whatsup", "sup", "wud", "wyd"):
             if low.rstrip(".!?") in ("true", "tru", "exactly", "exact", "same", "real", "really"):
                 return _pick_unique(ACK_REPLIES, last_reply, recents)
+            # lone affection ("love", "luv") is a mini-confession, not dryness
+            if low.rstrip(".!?") in ("love", "luv", "lob"):
+                if mood not in ("angry",):
+                    return _pick_unique(LOVE_YOU_REPLIES, last_reply, recents)
             if low.rstrip(".!?") in ("umm", "ummm", "hmm", "hmmm", "soo", "sooo", "uh", "uhh", "err"):
                 return _pick_unique(SHORT_FRAG, last_reply, recents)
             if low.rstrip(".!?") in HARD_DRY:
@@ -1471,8 +1484,8 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"\bdream(ed|t)?\b|sapna", low):
             if mood not in ("angry", "upset"):
                 return _pick_unique(DREAM_REPLIES, last_reply, recents)
-        # direct "i love you" — reciprocate directly
-        if re.search(r"\bi love (you|u)\b|love you (so|yaar|na)\b|lob you|ilove you", low):
+        # direct "i love you" — reciprocate directly (stretched letters too)
+        if re.search(r"\bi (l+o+v+e+|luv|lob) (you+|u+|ya+)\b|love you (so|yaar|na)\b|lob you|ilove you", low):
             if mood not in ("angry",):
                 return _pick_unique(LOVE_YOU_REPLIES, last_reply, recents)
         # opinion questions (do you love/miss/like me?) — yes directly.
@@ -1484,6 +1497,9 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"what do (you|u) love|who do (you|u) love|what do you like the most|what do you like most", low):
             if mood != "angry":
                 return _pick_unique(WHAT_LOVE_REPLIES, last_reply, recents)
+        # "what do you say" — volley the take back, never blank echo
+        if re.search(r"what do (you|u) say|what say|what u say", low):
+            return _pick_unique(WHAT_SAY_REPLIES, last_reply, recents)
         # "do you like/love X" (food/movie/thing — "me" handled above) — yes with a spin
         if re.search(r"\bdo you (like|love)\b|\bdo u (like|love)\b", low):
             if mood not in ("angry",):
