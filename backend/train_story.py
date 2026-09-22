@@ -33,7 +33,7 @@ SEED_PATH = os.path.join(DATA, "seed_memories.json")
 with open(SEED_PATH, encoding="utf-8") as f:
     SEED = json.load(f)
 
-NAME = "Arjun"
+NAME = "Satya"
 TARGET = 14000
 PER_CORE = 320
 
