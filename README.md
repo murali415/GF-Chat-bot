@@ -55,7 +55,7 @@ You (boyfriend) ──message──▶ RAG retrieve (TF-IDF over past chats + se
 
 ## Training (relationship memory) 🧠💘
 
-Priya is trained on **133667 lived episodes + 30 long-term memories** across
+Priya is trained on **229576 lived episodes + 30 long-term memories** across
 **300+ real-life situation types incl. angry, playful, annoyed, jealous, sadness, convincing, emotional, goofy, stressed, funny, flirty (tasteful)** — written like actual chats (typos, slang,
 lowercase, Hinglish mix), based on research into how real couples text:
 specific over generic, short over paragraphs, presence over advice
@@ -75,6 +75,7 @@ cd /home/LabsKraft/gf-chatbot/backend
 python3 fast_train10k.py      # full re-train (~108k episodes, ~30s)
 python3 train_story.py        # story-time top-up (~14k episodes, ~20s, idempotent)
 python3 train_spicy.py        # desire top-up (~11k [spicy] episodes, ~20s, idempotent)
+python3 train_sensitive.py    # intimate top-up (~96k [intimate] episodes, ~2min, idempotent)
 python3 -u stress_test.py     # hard test: 33 checks
 ```
 
@@ -94,10 +95,12 @@ gf-chatbot/
     app.py           FastAPI: /api/chat /api/history /api/mood /api/memories /api/reset + serves frontend
     mood_engine.py   present-tone scoring + mood state 0-100
     rag_store.py     pure-Python TF-IDF RAG over past chats + long-term seed memories
-    reply_engine.py  Ollama (optional) → template fallback, mood-conditioned
+    reply_engine.py  Ollama 0.5b (warmed, grounded replies win) → word-echo safety net;
+    exact math solver, story-time tales, knowledge questions go to the brain first
     scenarios_story.py story-time cores (47 day/incident/memory archetypes)
     train_story.py   story-time top-up trainer (~14k [story] episodes)
     train_spicy.py   desire top-up trainer (~11k [spicy] episodes)
+    train_sensitive.py intimate top-up trainer (~96k [intimate] episodes)
     requirements.txt
   frontend/
     index.html / style.css / app.js   cute chat UI + love meter + RAG memory panel
