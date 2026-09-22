@@ -875,7 +875,7 @@ QUESTION_FOLLOWUP = [
 ECHO_FRAMES_WARM = [
     "{snip}?? 👀 ooh, interesting!",
     "wait, {snip}?? 😲 go on!!",
-    "aww, {snip} 🥺 tell me everything?",
+    "aww, {snip} 🥺 noted ❤️",
     "haha {snip} 😭 classic. then what?",
     "{snip}... I'm listening 🥺 continue?",
     "omg {snip}?? 👀 I need details!!",
@@ -895,7 +895,7 @@ ECHO_FRAMES_COLD = [
 
 # stories / statements (i did X, we should Y, my day...) — engage, don't random-flirt
 STORY_ENGAGED = [
-    "wait really?? 😲 tell me everything!!",
+    "wait really?? 😲 no way!!",
     "omg 👀 and then what happened?",
     "no way 😲 I need full details!!",
     "aww 🥺 keep going, I'm listening",
@@ -1588,7 +1588,7 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
                     _pick_unique(STORY_ENGAGED, last_reply, recents),
                 ]
                 if snip != "that":
-                    cands.append(f"{snip}?? 😲 wait, tell me everything!!")
+                    cands.append(f"{snip}?? 😲 no way!!")
                 else:
                     cands.append(_pick_unique(STORY_ENGAGED, last_reply, recents + cands))
                 out = _pick_best(cands, msg, last_reply, recents, history)
@@ -1640,7 +1640,7 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
                     f"{snip}?? like {anchor} all over again? 👀",
                     f"haha this is giving {anchor} 😭",
                     f"aww {anchor}... my favorite us 🥺",
-                    f"{anchor}!! okay tell me everything 👀",
+                    f"{anchor}... my favorite story 🥺",
                 ]
             else:
                 cands = [
