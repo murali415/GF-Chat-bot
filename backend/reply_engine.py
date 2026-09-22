@@ -1220,8 +1220,9 @@ def _snippet(msg: str, max_words: int = 4) -> str:
         "then", "than", "also", "even", "still", "back", "every",
         "hmm", "hm", "ok", "k", "know", "uhh", "uhm", "well", "like",
         "real", "true", "tru", "exactly", "exact", "same", "turn",
+        "hey", "heyy", "hi", "hii", "hello", "yo",
         "iss", "tht", "dat", "dis", "wht", "wat", "teh", "hte",
-        "yuo", "nad", "taht", "si", "waht", "tihs",
+        "yuo", "nad", "taht", "si", "waht", "tihs", "palns",
     }
     words = [w for w in re.findall(r"[a-z']+", (msg or "").lower()) if w not in skip]
     if not words:
@@ -1448,6 +1449,11 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if "plan" in low and any(w in low for w in ("today", "tonight", "tomorrow", "weekend", "sunday")):
             if mood not in ("angry", "upset"):
                 return _pick_unique(PLANS_REPLIES, last_reply, recents)
+        # typo-tolerant plans ("palns", "plaan"): same answer, no echo fallback
+        if re.search(r"\b(palns|plaans?|plnas)\b", low) and \
+                any(w in low for w in ("today", "tonight", "tomorrow", "weekend", "sunday", "doing", "wanna", "let")):
+            if mood not in ("angry", "upset"):
+                return _pick_unique(PLANS_REPLIES, last_reply, recents)
         if re.search(r"\bwyd\b|what('re| are| were| was) (you|u) (doing|up to)|what (you|u) (doing|up to)|what.*doing (now|rn)|where are you|what'?s up\b|whats+'?s?\s*up|whatsup|wassup|\bsup\b|\bwud\b", low):
             if mood not in ("angry", "upset"):
                 return _pick_unique(DOING_REPLIES, last_reply, recents)
@@ -1573,9 +1579,10 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
                     cands.append(_pick_unique(STORY_ENGAGED, last_reply, recents + cands))
                 return _pick_best(cands, msg, last_reply, recents, history)
 
-        # She ASKS for it: burning mood turns 1 in 3 generic replies into
+        # She ASKS for it: burning mood turns 1 in 5 generic replies into
         # an outright invitation (specific branches above already returned).
-        if mood == "spicy" and random.random() < 0.34:
+        # Kept occasional — she stays a girlfriend, not a broken record.
+        if mood == "spicy" and random.random() < 0.2:
             return _pick_unique(SPICY_WANT, last_reply, recents)
 
     scenario = _pick_scenario(signals, last_reply, recents)
@@ -1618,10 +1625,10 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
             if warm and (msg or "").strip().endswith("!"):
                 cands += [f"yesss {snip}!! 🎉", f"omg I love that energy 😭❤️",
                           f"{snip}!! okay that's hot 🥺"]
-            # he stated, so she mostly STATES (70/30) — questions only win big
+            # he stated, so she mostly STATES (85/15) — questions only win big
             if "?" not in (msg or ""):
                 stmts = [c for c in cands if not c.rstrip().endswith("?")]
-                if stmts and random.random() < 0.7:
+                if stmts and random.random() < 0.85:
                     cands = stmts
             out = _pick_best(cands, msg or "", last_reply, recents, history)
         elif warm:
