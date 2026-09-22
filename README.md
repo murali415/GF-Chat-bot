@@ -114,3 +114,4 @@ gf-chatbot/
 ## Notes
 - Works **fully offline** (template replies). If Ollama is running (`ollama serve`, model `qwen2.5:0.5b`), replies become more natural automatically.
 - Edit `data/seed_memories.json` to give her more long-term memories of “you two”.
+- Typing-peek character: **Codexa** chibi pet by gantrol via [OpenPets](https://openpets.dev) (unofficial fan content, sprite trimmed to idle+wave).

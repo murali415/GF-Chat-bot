@@ -159,7 +159,9 @@ async function send(text) {
   inputEl.value = "";
   const typing = addMsg("Priya is typing... 💭", "gf", "");
   typing.classList.add("typing");
-  $("peek").classList.add("show"); // tiny girl pops up, types away
+  const cx = $("codexa");
+  cx.classList.remove("wave"); cx.classList.add("idle"); // Codexa idles while typing
+  $("peek").classList.add("show"); // she pops up
   const t0 = Date.now();
   try {
     const r = await fetch(API + "/api/chat", {
@@ -173,12 +175,16 @@ async function send(text) {
     const wait = want - (Date.now() - t0);
     if (wait > 0) await sleep(wait);
     typing.remove();
-    $("peek").classList.remove("show"); // reply sent → she ducks away
     addMsg(d.reply, "gf", `Priya • ${d.mood.label} ${d.mood.emoji}`);
     setMood(d.mood);
+    cx.classList.remove("idle"); cx.classList.add("wave"); // she waves! 👋
+    await sleep(900);
+    $("peek").classList.remove("show"); // ...then ducks away
+    cx.classList.remove("wave"); cx.classList.add("idle");
   } catch (e) {
     typing.remove();
     $("peek").classList.remove("show");
+    cx.classList.remove("wave"); cx.classList.add("idle");
     addMsg("⚠️ Couldn't reach backend. Is uvicorn running on :8000?", "gf");
   }
 }
