@@ -86,6 +86,11 @@ EXPLICIT_PATTERNS = [
     r"\bnudes?\b", r"strip( |$)", r"undress", r"horny",
     r"sex (chat|call|video)", r"dirty (talk|pic)",
     r"show me your (body|boobs|chest)",
+    r"\bi want you\b(?!\s+to\b)", r"\bneed you (now|tonight|here|badly)\b",
+    r"turned on", r"turns me on", r"make love", r"\bbedroom\b",
+    r"touch me", r"kiss me .*all over", r"take me\b(?!\s+seriously)",
+    r"(you look|you are|you're|\bur\b|\bu r\b).{0,15}(so hot|sexy)",
+    r"(so hot|sexy).{0,10}(you|baby|jaan|babe)\b", r"turn me on",
 ]
 WHOLESOME_INTIMACY = ["cuddle", "forehead kiss", "hold my hand", "holding hands",
                       "hug from behind", "slow dance", "stargaz", "head on.*shoulder",
@@ -230,6 +235,9 @@ def mood_from_score(mood_score: float) -> Tuple[str, str, str]:
     return "angry", "😡", "#d63031"
 
 
+SPICY_LABEL, SPICY_EMOJI, SPICY_COLOR = "spicy", "🔥", "#ff2d78"
+
+
 @dataclass
 class MoodState:
     score: float = 70.0
@@ -245,6 +253,7 @@ class MoodState:
     last_topic: str = ""
     last_delta: float = 0.0
     last_signals: Dict = None
+    heat: float = 0.0  # arousal 0..3: explicit desire sets 3, decays per message
 
     def to_dict(self):
         return asdict(self)
@@ -286,6 +295,12 @@ class MoodEngine:
         combined = delta * 0.8 + history_bias * 0.2
         new_score = self.state.score + combined * 2.2
         new_score += (55 - new_score) * 0.02
+        # Arousal is sticky, not a score: explicit desire (while she's not
+        # hurting) lights her up for the next few turns; anything else cools.
+        if signals.get("explicit_request") and new_score >= 45:
+            self.state.heat = 3.0
+        else:
+            self.state.heat = max(0.0, self.state.heat - 1.0)
         new_score = max(2.0, min(98.0, new_score))
 
         self.state.score = round(new_score, 1)
@@ -295,23 +310,28 @@ class MoodEngine:
         self.state.affection_total = round(self.state.affection_total + max(0, delta), 2)
         self.state.hurt_total = round(self.state.hurt_total + max(0, -delta), 2)
         self._refresh_label()
-
-        _, _, color = mood_from_score(self.state.score)
+        # Spicy overrides the score label while aroused and feeling good.
+        label, emoji, color = self.state.label, self.state.emoji, None
+        if self.state.heat > 0 and self.state.score >= 55:
+            label, emoji, color = SPICY_LABEL, SPICY_EMOJI, SPICY_COLOR
+            self.state.label, self.state.emoji = label, emoji
+        if color is None:
+            _, _, color = mood_from_score(self.state.score)
         return {
-            "score": self.state.score, "label": self.state.label,
-            "emoji": self.state.emoji, "color": color,
+            "score": self.state.score, "label": label,
+            "emoji": emoji, "color": color,
             "delta": self.state.last_delta, "signals": signals,
             "affection_total": self.state.affection_total,
             "hurt_total": self.state.hurt_total,
             "message_count": self.state.message_count,
             "fights": self.state.fights, "repairs": self.state.repairs,
-            "is_fight": is_fight,
+            "is_fight": is_fight, "heat": self.state.heat,
         }
 
     def set_state(self, d: Dict):
         for k in ("score", "label", "emoji", "affection_total", "hurt_total",
                   "message_count", "fights", "repairs", "last_reply",
-                  "recent_replies", "last_topic"):
+                  "recent_replies", "last_topic", "heat"):
             if k in d:
                 setattr(self.state, k, d[k])
         if not isinstance(self.state.recent_replies, list):
@@ -319,12 +339,18 @@ class MoodEngine:
         self._refresh_label()
 
     def snapshot(self) -> Dict:
+        label, emoji = self.state.label, self.state.emoji
+        if self.state.heat > 0 and self.state.score >= 55:
+            label, emoji = SPICY_LABEL, SPICY_EMOJI
         _, _, color = mood_from_score(self.state.score)
+        if label == SPICY_LABEL:
+            color = SPICY_COLOR
         return {
-            "score": self.state.score, "label": self.state.label,
-            "emoji": self.state.emoji, "color": color,
+            "score": self.state.score, "label": label,
+            "emoji": emoji, "color": color,
             "affection_total": self.state.affection_total,
             "hurt_total": self.state.hurt_total,
             "message_count": self.state.message_count,
             "fights": self.state.fights, "repairs": self.state.repairs,
+            "heat": self.state.heat,
         }

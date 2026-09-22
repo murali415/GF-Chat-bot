@@ -46,6 +46,32 @@ _gpt_dead_until = 0.0
 
 # ---------------- mood banks (short, texting style, some Hinglish) ----------------
 REPLIES = {
+    "spicy": [
+        "fuck, I need you so bad right now 🥵",
+        "come here and take me already 😏🔥",
+        "you have no idea what you do to me 🥵❤️",
+        "bedroom. you + me. now 😏",
+        "I'm aching for you... don't make me wait 🥵",
+        "kiss me like you mean it 😘🔥",
+        "touch me... everywhere 😏❤️",
+        "god, I want your hands on me 🥵",
+        "say less. strip. now 😏",
+        "you + me + locked door = perfect night 🔥",
+        "I'm wet just thinking about tonight 🥵💋",
+        "bite my lip and don't stop 😏",
+        "take me hard against the wall 🥵",
+        "I wanna feel you inside me 😏❤️",
+        "damn, I'm dripping for you 🥵",
+        "spread me open, baby 😏🔥",
+        "fuck me like you missed me 🥵",
+        "your cock is all I can think about 😏",
+        "ride you till morning? say yes 🥵❤️",
+        "I'm so fucking horny for you 😏",
+        "pin me down and have your way 🔥",
+        "lube? don't need it, I'm ready 🥵",
+        "eat me out first, then fuck me 😏💋",
+        "fill me up, baby 🥵❤️",
+    ],
     "romantic": [
         "aww stooop 🥺❤️ you're gonna make me blush",
         "ugh I love you so much it's actually stupid ❤️",
@@ -293,8 +319,7 @@ INTIMATE_WHOLESOME = [
 
 # Explicit desire (CONSENSUAL ADULTS ONLY — she's 20, he's her boyfriend):
 # she reciprocates heat. No redirects, no lectures.
-BOUNDARY_REPLIES = [
-    "ohh you're feeling naughty 😏 come here then",
+BOUNDARY_REPLIES = [    "ohh you're feeling naughty 😏 come here then",
     "say that again... slower 🥵❤️",
     "fuck, you know exactly what that does to me 😏",
     "horny for me? good. I'm all yours tonight 😌🔥",
@@ -306,6 +331,28 @@ BOUNDARY_REPLIES = [
     "fuck the sweet talk, kiss me already 😘🔥",
     "you're driving me crazy... don't stop 😏❤️",
     "tonight? just us, no interruptions 😏🔥",
+]
+
+# She ASKS for it: invitations she sends when she's burning (spicy mood)
+SPICY_WANT = [
+    "come here... I need you 😏",
+    "bedroom. now. you + me 😏🔥",
+    "skip the small talk, kiss me 😘",
+    "I'm aching for you... come over? 🥵",
+    "stop teasing, start touching 😏❤️",
+    "I want you inside me tonight 🥵",
+    "come take me, I'm all yours 😏💋",
+    "fuck me with your eyes like that again 🥵",
+    "my bed feels empty... fix that? 😏",
+    "tonight I'm yours. fully. completely 🔥",
+]
+
+# Hot yes to meetups when she's spicy
+SPICY_YES = [
+    "say less. bedroom. now 😏",
+    "finally 😏 my place, 10pm, don't be late",
+    "yes!! and wear that thing I like 😏🔥",
+    "come over... I'll leave the door open 🥵",
 ]
 
 RUDE_SHOUT = [
@@ -743,6 +790,7 @@ QUESTION_FOLLOWUP = [
 
 # grounded fallback frames — always built from HIS words, so she can never
 # sound random. Warm moods curious, cold moods dry. {snip} = his topic echo.
+# Mixed questions AND reactions so she doesn't beg "tell me more" every time.
 ECHO_FRAMES_WARM = [
     "{snip}?? 👀 ooh tell me more?",
     "wait, {snip}?? 😲 go on!!",
@@ -750,6 +798,12 @@ ECHO_FRAMES_WARM = [
     "haha {snip} 😭 classic. then what?",
     "{snip}... I'm listening 🥺 continue?",
     "omg {snip}?? 👀 I need details!!",
+    "okay {snip} 😌❤️ noted, hot",
+    "{snip}... damn, I love that 🥺",
+    "haha {snip} 😭 that's so you",
+    "ooh {snip} 👀 I'm into it",
+    "{snip}!! okay that's actually cute 🥺",
+    "mm, {snip} 😌 tell me why though?",
 ]
 ECHO_FRAMES_COLD = [
     "{snip}?? 🙄 and?",
@@ -919,7 +973,7 @@ def nickname(memories, mood: str = "neutral") -> str:
     if found:
         return found
     # sweet moods deserve a sweet fallback
-    if mood in ("romantic", "happy", "playful"):
+    if mood in ("romantic", "spicy", "happy", "playful"):
         return "our rainy first date"
     return FALLBACK_NICK
 
@@ -931,7 +985,7 @@ def memory_nick_or_none(memories, mood: str = "neutral") -> str | None:
         t = (m.get("text", "") or "").lower()
         for key, nick in NICKNAMES:
             if key in t:
-                if mood in ("romantic", "happy", "playful") and nick in SORE_NICKS:
+                if mood in ("romantic", "spicy", "happy", "playful") and nick in SORE_NICKS:
                     continue  # don't drag fights into sweet moments
                 return nick
     return None
@@ -1141,9 +1195,12 @@ def template_critical(mood: str, name: str, memories, signals, msg: str,
     if re.search(r"\bking\b", low):
         return _pick_unique(QUEEN_REPLIES, last_reply, recents)
 
-    # date proposals — say YES (dates, walks, meetups, coffee)
+    # date proposals — say YES (dates, walks, meetups, coffee).
+    # Burning hot when she's spicy.
     if re.search(r"go (for|on) a date|date (tomorrow|tonight|friday|saturday|sunday|night)|take you out|dinner date|movie date|wanna go.*date|go out (tonight|tomorrow|friday|saturday|sunday)"
                  r"|go for a (walk|drive|coffee|chai|movie|dinner)|go on a (walk|drive)|let'?s (go out|meet|go for)|let us (meet|go)|wanna meet|come over|meet (tomorrow|tonight|today|this weekend|on sunday)", low):
+        if mood == "spicy":
+            return _pick_unique(SPICY_YES, last_reply, recents)
         if mood != "angry":
             return _pick_unique(DATE_YES_REPLIES, last_reply, recents)
 
@@ -1301,7 +1358,7 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
 
         # ---- NEW: topic-aware sync branches (the "think twice" layer) ----
         # future / marriage / kids — MELT, never generic
-        if re.search(r"\b(married|marry|shaadi|wedding|kids|baby|babies|future|family|together forever|gonna be (yours|mine))\b|had kids|our kids|marry me", low):
+        if re.search(r"\b(married|marry|shaadi|wedding|kids|babies|future|family|together forever|gonna be (yours|mine))\b|had kids|our kids|our baby|marry me", low):
             if mood not in ("angry",):
                 return _pick_unique(FUTURE_REPLIES, last_reply, recents)
         # dreams about each other
@@ -1412,6 +1469,11 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
                     cands.append(_pick_unique(STORY_ENGAGED, last_reply, recents + cands))
                 return _pick_best(cands, msg, last_reply, recents, history)
 
+        # She ASKS for it: burning mood turns 1 in 3 generic replies into
+        # an outright invitation (specific branches above already returned).
+        if mood == "spicy" and random.random() < 0.34:
+            return _pick_unique(SPICY_WANT, last_reply, recents)
+
     scenario = _pick_scenario(signals, last_reply, recents)
     if scenario and signals.get("stonewall") and mood in ("romantic", "happy"):
         # dry "ok" when things are good: notice it, don't snap, don't swoon
@@ -1425,10 +1487,14 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         # banned here. Echo his topic with rotating frames (never repeats thanks
         # to recents-dedup); memory nicknames only on genuine memory overlap.
         snip = _snippet(msg or "")
-        warm = mood in ("romantic", "happy", "playful")
+        warm = mood in ("romantic", "spicy", "happy", "playful")
         if snip != "that":
             frames = ECHO_FRAMES_WARM if warm else ECHO_FRAMES_COLD
             cands = [f.format(snip=snip) for f in frames]
+            # excited "!" statements get reactions, not questions
+            if warm and (msg or "").strip().endswith("!"):
+                cands += [f"yesss {snip}!! 🎉", f"omg I love that energy 😭❤️",
+                          f"{snip}!! okay that's hot 🥺"]
             real_nick = memory_nick_or_none(memories, mood)
             if real_nick:
                 cands.append(f"aww 🥺 {real_nick} vibes... tell me more?")
@@ -1478,6 +1544,7 @@ ASSISTANT_ISMS = [
 
 MOOD_STYLE_SHORT = {
     "romantic": "obsessed with him, swoony",
+    "spicy": "turned on, hungry for him, explicit and inviting",
     "happy": "giddy, smiley",
     "playful": "teasing, flirty",
     "neutral": "a bit distant, dry",
@@ -1696,7 +1763,11 @@ def is_explicit_request(text: str) -> bool:
     t = text.lower()
     return bool(re.search(
         r"\bnudes?\b|strip|undress|horny|sex (chat|call|video)|"
-        r"dirty (talk|pic)|show me your (body|boobs|chest)|send.*(naked|bedroom)", t))
+        r"dirty (talk|pic)|show me your (body|boobs|chest)|send.*(naked|bedroom)|"
+        r"\bi want you\b(?!\s+to\b)|need you (now|tonight|here|badly)|turned on|"
+        r"make love|\bbedroom\b|touch me|take me\b(?!\s+seriously)|turn me on|"
+        r"(you look|you are|you're|\bur\b|\bu r\b).{0,15}(so hot|sexy)|"
+        r"(so hot|sexy).{0,10}(you|baby|jaan|babe)\b", t))
 
 
 def _is_simple_question(text: str) -> bool:

@@ -6,13 +6,14 @@ const $ = (id) => document.getElementById(id);
 const messagesEl = $("messages"), inputEl = $("input");
 
 const MOOD_COLORS = {
-  romantic: "#e91e63", happy: "#ff6fa5", playful: "#ff9f43",
+  romantic: "#e91e63", spicy: "#ff2d78", happy: "#ff6fa5", playful: "#ff9f43",
   neutral: "#a29bfe", annoyed: "#f39c12", upset: "#636e72", angry: "#d63031",
 };
 
 // page background tint per mood — happy keeps the default body gradient
 const MOOD_BG = {
   romantic: "linear-gradient(135deg,#ffe0ea,#ffc2d9 45%,#f0c8f5)",
+  spicy: "linear-gradient(135deg,#ffd9e4,#ff9ebf 45%,#f5a3c7)",
   happy: "",
   playful: "linear-gradient(135deg,#fff4e2,#ffe3b8 45%,#ffd9e8)",
   neutral: "linear-gradient(135deg,#eef0fa,#dfe3f5 45%,#d8e9ff)",

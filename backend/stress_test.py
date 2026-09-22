@@ -31,6 +31,17 @@ e = MoodEngine(70.0)
 m = e.update("Good morning beautiful, I love you so much ❤️")
 check("romance lifts mood", m["score"] > 70 and m["label"] in ("happy", "romantic"), f"{m['label']} {m['score']}")
 
+e = MoodEngine(72.0)
+m = e.update("I am horny for you")
+check("desire ignites spicy", m["label"] == "spicy" and m["heat"] == 3.0, f"{m['label']} heat={m['heat']}")
+for _ in range(3):
+    m = e.update("tell me more about your day")
+check("spicy cools after 3 plain turns", m["label"] != "spicy" and m["heat"] == 0.0, f"{m['label']} heat={m['heat']}")
+
+e = MoodEngine(20.0)
+m = e.update("I am horny for you")
+check("desire refused while hurt", m["label"] != "spicy" and m["heat"] == 0.0, f"{m['label']}")
+
 e = MoodEngine(70.0)
 m = e.update("ok")
 check("dry 'ok' drops mood", m["score"] < 70 and m["signals"]["stonewall"], f"{m['label']} {m['score']}")
@@ -117,7 +128,7 @@ check("never repeats her last line", r4a != r4b, f"{r4a!r} vs {r4b!r}")
 
 print("\n=== 5. REPLY VARIETY ===")
 moods_ok = True
-for mood in ["romantic", "happy", "playful", "neutral", "annoyed", "upset", "angry"]:
+for mood in ["romantic", "spicy", "happy", "playful", "neutral", "annoyed", "upset", "angry"]:
     r = template_reply(mood, "Hero", store.retrieve("love you"), signals={})
     if not r or len(r) < 5 or len(r.split()) > 35:
         moods_ok = False
