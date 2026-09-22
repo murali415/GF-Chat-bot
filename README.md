@@ -25,10 +25,14 @@ Push this folder to GitHub, then Vercel Dashboard → **Add New → Project** �
 routes everything to the FastAPI app, `requirements.txt` installs deps).
 
 Notes:
-- Cloud mode runs template replies (`PRIYA_NO_LLM=1`) over a bundled 10k
+- Cloud mode runs template replies over a bundled 10k
   episode sample (`data/conversations.sample.json`) — no Ollama on Vercel.
-  For GPT brains instead, set `OPENAI_API_KEY` + `OPENAI_ENDPOINT` + unset
-  `PRIYA_NO_LLM` in Vercel → Project → Settings → Environment Variables.
+- For a thinking brain, add a free key — **Gemini** (aistudio.google.com →
+  Get API key, free) or **Groq** (console.groq.com, free) — as `GEMINI_API_KEY`
+  (model `PRIYA_GEMINI_MODEL`, default `gemini-2.0-flash`) or `OPENAI_API_KEY` +
+  `OPENAI_ENDPOINT`, in Vercel → Project → Settings → Environment Variables
+  (or exported locally). No code change needed — the brain chain is
+  GPT-key → Gemini → local Ollama → templates, each with breakers + fallbacks.
 - Serverless filesystem is ephemeral: chats persist per-instance only.
 
 ## How it works

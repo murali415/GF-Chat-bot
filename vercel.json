@@ -6,6 +6,6 @@
     }
   },
   "env": {
-    "PRIYA_NO_LLM": "1"
+    "PRIYA_OLLAMA": "0"
   }
 }

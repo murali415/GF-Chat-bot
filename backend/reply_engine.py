@@ -882,7 +882,7 @@ ECHO_FRAMES_WARM = [
     "okay {snip} 😌❤️ noted, hot",
     "{snip}... damn, I love that 🥺",
     "haha {snip} 😭 that's so you",
-    "ooh {snip} 👀 I'm into it",
+    "ooh {snip} 👀 nice!",
     "{snip}!! okay that's actually cute 🥺",
     "mm, {snip} 😌 tell me why though?",
 ]
@@ -1763,53 +1763,32 @@ def ollama_available() -> bool:
         return False
 
 
-def gpt_available() -> bool:
-    """Main AI configured? Just needs a key — no slow ping per message."""
-    return bool(GPT_API_KEY)
+# Cloud brains (OpenAI-compatible chat endpoints). GPT = configured key
+# (lab Azure / Groq free tier / OpenAI — whatever OPENAI_ENDPOINT points to).
+# Gemini = Google's free-tier key, same protocol, zero extra deps.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("PRIYA_GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai"
+GEMINI_TIMEOUT = float(os.environ.get("PRIYA_GEMINI_TIMEOUT", "15"))
+GEMINI_COOLDOWN = float(os.environ.get("PRIYA_GEMINI_COOLDOWN", "600"))
+_gemini_client = None
+_gemini_fails = 0
+_gemini_dead_until = 0.0
 
 
-def _gpt_client_lazy():
-    global _gpt_client
-    if _gpt_client is not None:
-        return _gpt_client
+def _compat_client(api_key, base_url, timeout):
     try:
         from openai import OpenAI
     except Exception:
         return None
-    base_url = None
-    if GPT_ENDPOINT:
-        ep = GPT_ENDPOINT
-        if ep.endswith("/openai/v1"):
-            base_url = ep + "/"
-        elif ep.endswith("/openai/v1/"):
-            base_url = ep
-        else:
-            base_url = ep + "/openai/v1/"
     try:
-        _gpt_client = OpenAI(api_key=GPT_API_KEY, base_url=base_url,
-                             timeout=GPT_TIMEOUT, max_retries=0)
+        return OpenAI(api_key=api_key, base_url=base_url,
+                      timeout=timeout, max_retries=0)
     except Exception:
         return None
-    return _gpt_client
 
 
-def gpt_reply(system: str, user_msg: str, history=None) -> str | None:
-    """GPT-4o-mini as the main brain. Returns raw text or None on any failure
-    (bad key, dead endpoint, timeout) so callers fall back to templates.
-    Circuit-breaker: after 2 consecutive failures, skip GPT for GPT_COOLDOWN
-    seconds so one dead endpoint doesn't tax every message."""
-    global _gpt_fails, _gpt_dead_until
-    if not GPT_API_KEY:
-        return None
-    try:
-        import time as _time
-        if _time.time() < _gpt_dead_until:
-            return None
-    except Exception:
-        pass
-    client = _gpt_client_lazy()
-    if client is None:
-        return None
+def _compat_chat(client, model, system, user_msg, history):
     msgs = [{"role": "system", "content": system}]
     for t in (history or [])[-4:]:
         if t.get("bf"):
@@ -1817,25 +1796,88 @@ def gpt_reply(system: str, user_msg: str, history=None) -> str | None:
         if t.get("gf"):
             msgs.append({"role": "assistant", "content": t["gf"][:200]})
     msgs.append({"role": "user", "content": user_msg})
+    resp = client.chat.completions.create(
+        model=model, messages=msgs, max_tokens=80, temperature=0.9,
+    )
+    return (resp.choices[0].message.content or "").strip() or None
+
+
+def _breaker_open(dead_until):
     try:
-        resp = client.chat.completions.create(
-            model=GPT_MODEL,
-            messages=msgs,
-            max_tokens=80,
-            temperature=0.9,
-        )
-        out = (resp.choices[0].message.content or "").strip() or None
+        import time as _time
+        return _time.time() < dead_until
+    except Exception:
+        return False
+
+
+def _breaker_trip(fails, dead_until, cooldown):
+    try:
+        import time as _time
+        fails += 1
+        if fails >= 2:
+            dead_until = _time.time() + cooldown
+    except Exception:
+        pass
+    return fails, dead_until
+
+
+def gpt_available() -> bool:
+    """Main AI configured? Just needs a key — no slow ping per message."""
+    return bool(GPT_API_KEY)
+
+
+def gpt_reply(system: str, user_msg: str, history=None) -> str | None:
+    """GPT-class brain (lab Azure / Groq free tier / OpenAI). Returns raw text
+    or None on any failure so callers fall back. Circuit-breaker: after 2
+    consecutive failures, skip for GPT_COOLDOWN seconds."""
+    global _gpt_client, _gpt_fails, _gpt_dead_until
+    if not GPT_API_KEY or _breaker_open(_gpt_dead_until):
+        return None
+    if _gpt_client is None:
+        base_url = None
+        if GPT_ENDPOINT:
+            ep = GPT_ENDPOINT
+            if ep.endswith("/openai/v1"):
+                base_url = ep + "/"
+            elif ep.endswith("/openai/v1/"):
+                base_url = ep
+            else:
+                base_url = ep + "/openai/v1/"
+        _gpt_client = _compat_client(GPT_API_KEY, base_url, GPT_TIMEOUT)
+    if _gpt_client is None:
+        return None
+    try:
+        out = _compat_chat(_gpt_client, GPT_MODEL, system, user_msg, history)
         if out:
             _gpt_fails = 0
         return out
     except Exception:
-        try:
-            import time as _time
-            _gpt_fails += 1
-            if _gpt_fails >= 2:
-                _gpt_dead_until = _time.time() + GPT_COOLDOWN
-        except Exception:
-            pass
+        _gpt_fails, _gpt_dead_until = _breaker_trip(_gpt_fails, _gpt_dead_until, GPT_COOLDOWN)
+        return None
+
+
+def gemini_available() -> bool:
+    """Gemini brain configured? Free key from aistudio.google.com, no ping."""
+    return bool(GEMINI_API_KEY)
+
+
+def gemini_reply(system: str, user_msg: str, history=None) -> str | None:
+    """Gemini brain (free tier) via its OpenAI-compatible endpoint. Same
+    breaker contract as GPT — None on any failure."""
+    global _gemini_client, _gemini_fails, _gemini_dead_until
+    if not GEMINI_API_KEY or _breaker_open(_gemini_dead_until):
+        return None
+    if _gemini_client is None:
+        _gemini_client = _compat_client(GEMINI_API_KEY, GEMINI_ENDPOINT, GEMINI_TIMEOUT)
+    if _gemini_client is None:
+        return None
+    try:
+        out = _compat_chat(_gemini_client, GEMINI_MODEL, system, user_msg, history)
+        if out:
+            _gemini_fails = 0
+        return out
+    except Exception:
+        _gemini_fails, _gemini_dead_until = _breaker_trip(_gemini_fails, _gemini_dead_until, GEMINI_COOLDOWN)
         return None
 
 
@@ -1935,7 +1977,10 @@ def is_explicit_request(text: str) -> bool:
         r"(so hot|sexy).{0,10}(you|baby|jaan|babe)\b|"
         r"have sex|lets fuck|let us fuck|wanna fuck|fuck me|"
         r"\b69\b|blowjob|handjob|\bpussy\b|\bdick\b|"
-        r"\bcum\b|orgasm|make out|you('re|r| are) hot\b", t))
+        r"\bcum\b|orgasm|make out|you('re|r| are) hot\b|"
+        r"\bse+x+\b|\bmoan+\b|finger me|finger you|fingering|finger my|"
+        r"gspot|g-spot|\bnaked\b|"
+        r"(remove|take off|pull off).{0,15}(clothes|dress|shirt|bra|panties|panty|top|skirt)", t))
 
 
 def _is_simple_question(text: str) -> bool:
@@ -2008,26 +2053,37 @@ def generate_reply(mood: str, boyfriend_name: str, boyfriend_msg: str,
     #     groundedness gate (correct math shares no words with the question).
     if _is_knowledge_question(boyfriend_msg or "") and not NO_LLM:
         system = build_system_prompt(mood, name, memories, signals, history, recents)
-        if gpt_available():
-            out = gpt_reply(system, boyfriend_msg, history)
-            cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
-            if cleaned and cleaned != last_reply and cleaned not in recents:
-                return cleaned, f"gpt-{GPT_MODEL}"
+        for _avail, _call, _tag in (
+            (gpt_available, gpt_reply, f"gpt-{GPT_MODEL}"),
+            (gemini_available, gemini_reply, f"gemini-{GEMINI_MODEL}"),
+        ):
+            if _avail():
+                out = _call(system, boyfriend_msg, history)
+                cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
+                if cleaned and cleaned != last_reply and cleaned not in recents:
+                    return cleaned, _tag
         if USE_OLLAMA and ollama_available():
             out = ollama_reply(system, boyfriend_msg)
             cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
             if cleaned and cleaned != last_reply and cleaned not in recents:
                 return cleaned, f"ollama-{LLM_MODEL}"
         # offline / brain failed: templates answer below (smartass bank)
-    # 2) MAIN AI: GPT-4o-mini (memories + recent conversation included).
-    #    Wins only if grounded (proven it listened) — else the echo template.
-    if not NO_LLM and gpt_available():
+    # 2) Cloud brains: configured GPT key, then free Gemini key (memories +
+    #    recent conversation included). Wins only if grounded (proven it
+    #    listened) — else the echo template.
+    if not NO_LLM and (gpt_available() or gemini_available()):
         system = build_system_prompt(mood, name, memories, signals, history, recents)
-        out = gpt_reply(system, boyfriend_msg, history)
-        cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
-        if (cleaned and cleaned != last_reply and cleaned not in recents
-                and llm_is_grounded(cleaned, boyfriend_msg or "")):
-            return cleaned, f"gpt-{GPT_MODEL}"
+        for _avail, _call, _tag in (
+            (gpt_available, gpt_reply, f"gpt-{GPT_MODEL}"),
+            (gemini_available, gemini_reply, f"gemini-{GEMINI_MODEL}"),
+        ):
+            if not _avail():
+                continue
+            out = _call(system, boyfriend_msg, history)
+            cleaned = clean_llm(out or "", signals, boyfriend_msg or "")
+            if (cleaned and cleaned != last_reply and cleaned not in recents
+                    and llm_is_grounded(cleaned, boyfriend_msg or "")):
+                return cleaned, _tag
     # 3) Local brain: warm Ollama thinks for novel messages (templates already
     #    handled exact moments + small-talk above, so anything reaching here
     #    genuinely needs understanding). Grounded replies win, bland ones fall

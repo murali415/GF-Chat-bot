@@ -95,6 +95,9 @@ EXPLICIT_PATTERNS = [
     r"have sex", r"lets fuck|let us fuck|wanna fuck|fuck me",
     r"\b69\b", r"blowjob", r"handjob", r"\bpussy\b", r"\bdick\b",
     r"\bcum\b", r"orgasm", r"make out", r"you('re|r| are) hot\b",
+    r"\bse+x+\b", r"\bmoan+\b", r"finger me|finger you|fingering|finger my",
+    r"gspot|g-spot", r"\bnaked\b",
+    r"(remove|take off|pull off).{0,15}(clothes|dress|shirt|bra|panties|panty|top|skirt)",
 ]
 WHOLESOME_INTIMACY = ["cuddle", "forehead kiss", "hold my hand", "holding hands",
                       "hug from behind", "slow dance", "stargaz", "head on.*shoulder",
