@@ -626,6 +626,53 @@ MISSED_EVENT_REPLIES = [
     "I'm really sorry I wasn't there 🥺 next time, pakka promise",
 ]
 
+# "tell me a joke / make me laugh" — cute dodges + tiny jokes, never random
+JOKE_REPLIES = [
+    "okay okay... why did I fall for you? because you're an idiot 😌❤️",
+    "haha... you + me + no phone for 1 hour. THAT's the joke 😭",
+    "roses are red, you're cute, come here and give me a kiss 😌💋",
+    "my love life... oh wait, that's you 😌❤️",
+    "haha I only know one joke: your singing 😭❤️",
+    "why don't we ever fight? oh wait, we do 😭",
+]
+
+# favorites (movie/food/song/color) — picks one + asks him back
+FAVORITE_REPLIES = [
+    "that romcom we watched + popcorn 🥺 what's yours?",
+    "anything you feed me 😌❤️ you pick tonight?",
+    "our song, obviously 🥺 what else would it be",
+    "pink. like my cheeks when you tease me 🥺 you?",
+    "midnight maggie + you. best combo ever 🍜❤️",
+    "whatever we're watching together 🥺 your turn, pick one",
+]
+
+# favorite song — always "our song" energy
+FAV_SONG_REPLIES = [
+    "our song, obviously 🥺 what else would it be",
+    "the one you sang for me 🥺❤️ play it again?",
+    "anything slow we can dance to 🥺💋 you pick?",
+    "our song on loop forever 😌❤️",
+]
+
+# "do you like X" (not me) — yes with a spin, never generic
+LIKE_YES_REPLIES = [
+    "yess 😌 especially with you",
+    "obviously!! 🥺 let's do it together?",
+    "duh, love it 😌❤️",
+    "yes yes!! 🥰 when are we doing that?",
+    "of course 😌 it's our thing now",
+]
+
+# "i am bored" — entertains, never "mhm go on"
+BORED_REPLIES = [
+    "bored?? then entertain me, clown 😌",
+    "sameee 😭 let's do something stupid together?",
+    "boredom + you = let's plan something 👀",
+    "okay okay, rapid fire: truth or dare? 😌",
+    "bored? good, means you miss me 🥺 admit it",
+    "let's play: describe me in 3 words. go 😌",
+]
+
 # general questions she can't answer factually — stay curious, reference HIS words
 QUESTION_FOLLOWUP = [
     "hmm?? 😅 explain a little more?",
@@ -1008,8 +1055,9 @@ def template_critical(mood: str, name: str, memories, signals, msg: str,
     if re.search(r"\bking\b", low):
         return _pick_unique(QUEEN_REPLIES, last_reply, recents)
 
-    # date proposals — say YES
-    if re.search(r"go (for|on) a date|date (tomorrow|tonight|friday|saturday|sunday|night)|take you out|dinner date|movie date|wanna go.*date|go out (tonight|tomorrow|friday|saturday|sunday)", low):
+    # date proposals — say YES (dates, walks, meetups, coffee)
+    if re.search(r"go (for|on) a date|date (tomorrow|tonight|friday|saturday|sunday|night)|take you out|dinner date|movie date|wanna go.*date|go out (tonight|tomorrow|friday|saturday|sunday)"
+                 r"|go for a (walk|drive|coffee|chai|movie|dinner)|go on a (walk|drive)|let'?s (go out|meet|go for)|let us (meet|go)|wanna meet|come over|meet (tomorrow|tonight|today|this weekend|on sunday)", low):
         if mood != "angry":
             return _pick_unique(DATE_YES_REPLIES, last_reply, recents)
 
@@ -1165,6 +1213,24 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         if re.search(r"\bdo you (love|miss|like|care|trust) me\b|do you remember|do you wanna", low):
             if mood not in ("angry",):
                 return _pick_unique(OPINION_YES_REPLIES, last_reply, recents)
+        # "do you like X" (food/movie/thing — "me" handled above) — yes with a spin
+        if re.search(r"\bdo you like\b|\bdo u like\b", low):
+            if mood not in ("angry",):
+                return _pick_unique(LIKE_YES_REPLIES, last_reply, recents)
+        # "tell me a joke / make me laugh" — cute, never random
+        if re.search(r"tell me a joke|make me laugh|say something funny|joke sunao|a joke please|one joke", low):
+            if mood not in ("angry",):
+                return _pick_unique(JOKE_REPLIES, last_reply, recents)
+        # favorites — picks one + asks him back (songs get song-energy)
+        if re.search(r"favorite (movie|food|song|color|colour|dish|actor|show|game)|favourite (movie|food|song|color|colour)|fav (movie|song|food)", low):
+            if mood != "angry":
+                if "song" in low:
+                    return _pick_unique(FAV_SONG_REPLIES, last_reply, recents)
+                return _pick_unique(FAVORITE_REPLIES, last_reply, recents)
+        # bored — entertains, never "mhm go on"
+        if re.search(r"\bi'?m bored\b|i am bored|bore ho raha|nothing to do|so boring today|boring (day|evening)", low):
+            if mood not in ("angry", "upset"):
+                return _pick_unique(BORED_REPLIES, last_reply, recents)
         # vague follow-ups that need HISTORY ("what does that mean", "why?", "really?")
         if re.search(r"what does that mean|what do you mean|means\?|why\?*$|really\?*$|seriously\?*$|sachi\?*$", low):
             if history:
@@ -1451,7 +1517,9 @@ def _is_simple_question(text: str) -> bool:
         r"plan.*(today|tonight|tomorrow|weekend)|what.*(ur|your|you'?re?) plans?"
         r"|\bwyd\b|what('re| are) (you|u) doing|where are you|you there|u there"
         r"|\bgood\s*(night|morning)\b|\bi miss (you|u)\b|call (me|na)"
-        r"|did (you|u) eat|had (lunch|dinner)",
+        r"|did (you|u) eat|had (lunch|dinner)"
+        r"|tell me a joke|make me laugh|favorite|favourite|do you like"
+        r"|\bbored\b|go for a (walk|drive|coffee|chai)|come over|lets meet",
         low))
 
 
