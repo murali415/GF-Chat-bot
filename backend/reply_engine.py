@@ -765,6 +765,14 @@ WHAT_SAY_REPLIES = [
     "I say... you're cute. your turn 😌❤️",
 ]
 
+# "get you in a good mood / cheer me up" — takes him up on it, playfully
+CHEER_OFFER = [
+    "ooh really? how? 👀",
+    "promises promises 😌 show me?",
+    "okay, attempt accepted 😌 impress me",
+    "my hero 😌❤️ go on?",
+]
+
 # "do you work / study" — cute + ask back
 WORK_STUDY_REPLIES = [
     "college by day, professional girlfriend by night 😌❤️ you?",
@@ -1501,6 +1509,11 @@ def template_reply(mood: str, name: str, memories, signals=None, msg: str = "",
         # "what do you say" — volley the take back, never blank echo
         if re.search(r"what do (you|u) say|what say|what u say", low):
             return _pick_unique(WHAT_SAY_REPLIES, last_reply, recents)
+        # "get you in a good mood / cheer me up" — takes him up on it.
+        # (make-me-laugh stays a joke request, handled by JOKE below.)
+        if re.search(r"good mood|cheer me up|make me (happy|smile)|fix my mood|lighten (me|my) up", low):
+            if mood != "angry":
+                return _pick_unique(CHEER_OFFER, last_reply, recents)
         # "do you like/love X" (food/movie/thing — "me" handled above) — yes with a spin
         if re.search(r"\bdo you (like|love)\b|\bdo u (like|love)\b", low):
             if mood not in ("angry",):
