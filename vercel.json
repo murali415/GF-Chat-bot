@@ -1,15 +1,10 @@
 {
   "functions": {
-    "api/index.py": {
-      "maxDuration": 60
+    "main.py": {
+      "maxDuration": 60,
+      "includeFiles": "frontend/**, data/seed_memories.json, data/conversations.sample.json"
     }
   },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index"
-    }
-  ],
   "env": {
     "PRIYA_NO_LLM": "1"
   }
