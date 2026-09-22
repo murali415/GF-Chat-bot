@@ -1,0 +1,16 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# regenerable runtime state (rebuild with fast_train10k.py + train_story.py)
+# also keeps your private chats out of git
+data/conversations.json
+data/conversations.json.tmp
+data/mood.json
+
+# secrets
+.env
+*.key

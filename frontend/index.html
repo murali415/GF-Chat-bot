@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Priya 💖 — Your Girlfriend Chat</title>
+<link rel="stylesheet" href="/static/style.css?v=priya4" />
+</head>
+<body>
+<div class="mood-bg" id="moodBgA"></div>
+<div class="mood-bg" id="moodBgB"></div>
+<div class="bg-hearts" id="bgHearts"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="avatar">💖</div>
+    <div>
+      <h1>Priya <span class="sub">your girlfriend</span></h1>
+      <p class="status"><span class="dot" id="onlineDot"></span> online • remembers everything</p>
+    </div>
+  </div>
+  <div class="mood-pill" id="moodPill">
+    <span id="moodEmoji">🥰</span>
+    <span id="moodLabel">happy</span>
+    <span class="score" id="moodScore">70</span>
+  </div>
+</header>
+
+<main class="layout-single">
+  <section class="chat-card">
+    <div class="love-meter-wrap">
+      <div class="love-meter-top">
+        <span>💗 Love meter</span><span id="lovePct">70%</span>
+      </div>
+      <div class="love-meter"><div id="loveBar"></div></div>
+    </div>
+
+    <div class="toolbar">
+      <label>Your name: <input id="bfName" value="Arjun" maxlength="20" /></label>
+      <button class="ghost" id="resetBtn" title="Clear your chats (her training memory stays)">🧹 Clear chat</button>
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="quick">
+      <button data-q="Good morning beautiful ❤️ I missed you so much">Good morning beautiful ❤️</button>
+      <button data-q="How was your day? Tell me everything">How was your day?</button>
+      <button data-q="I'm really sorry. Forgive me please? 🥺">Sorry, forgive me? 🥺</button>
+      <button data-q="I love you so much">I love you ❤️</button>
+      <button data-q="ok">ok</button>
+    </div>
+
+    <form class="composer" id="composer">
+      <input id="input" autocomplete="off" maxlength="500" placeholder="Talk to Priya... 💬" />
+      <button type="submit">Send 💌</button>
+    </form>
+  </section>
+</main>
+
+<footer>Made with 💖 • Runs on localhost</footer>
+
+<script src="/static/app.js?v=priya4"></script>
+</body>
+</html>
