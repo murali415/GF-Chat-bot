@@ -11,6 +11,9 @@ from pydantic import BaseModel
 from mood_engine import MoodEngine
 from rag_store import RAGStore
 from reply_engine import generate_reply, detect_topic
+import reply_engine as _brain  # PURE_LLM flag lives here
+
+PURE_MODE = os.environ.get("PRIYA_PURE_LLM", "0") == "1" or getattr(_brain, "PURE_LLM", False)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND = os.path.join(BASE, "frontend")
@@ -127,12 +130,20 @@ def chat(inp: ChatIn):
         msg = msg[:500]
 
     # 1) RAG: single retrieve (top 5) — top 3 shown, all 5 nudge mood
-    hits = rag.retrieve(msg, top_k=5)
-    memories = hits[:3]
-    epis = [h for h in hits if h.get("kind") == "episode"]
-    bias = 0.0
-    if epis:
-        bias = max(-2.0, min(2.0, sum(h.get("delta", 0) for h in epis) / len(epis)))
+    # PURE_MODE: ignore old bulk file completely (no retrieve, no bias).
+    # Fresh memory = only live turns saved from now on (step 4 still runs).
+    _pure = PURE_MODE or getattr(_brain, "PURE_LLM", False) \
+        or os.environ.get("PRIYA_PURE_LLM", "0") == "1"
+    if _pure:
+        memories = []
+        bias = 0.0
+    else:
+        hits = rag.retrieve(msg, top_k=5)
+        memories = hits[:3]
+        epis = [h for h in hits if h.get("kind") == "episode"]
+        bias = 0.0
+        if epis:
+            bias = max(-2.0, min(2.0, sum(h.get("delta", 0) for h in epis) / len(epis)))
 
     # 2) Mood update: present tone + past bias
     mood = engine.update(msg, history_bias=bias)
@@ -140,11 +151,12 @@ def chat(inp: ChatIn):
 
     # 3) Priya answers: critical-sync templates -> LLM (RAG + recent chat)
     #    -> full templates. Never repeats her recent lines.
+    # PURE_MODE: recent live history only (last 10), no old bulk memories.
     recents = getattr(engine.state, "recent_replies", None) or []
     if not isinstance(recents, list):
         recents = []
     prev_topic = getattr(engine.state, "last_topic", "") or ""
-    recent_turns = rag.history(limit=50)[-6:]
+    recent_turns = rag.history(limit=50)[-10:]
     history = [{"bf": t["bf"], "gf": t["gf"]} for t in recent_turns]
     reply, source = generate_reply(mood["label"], name, msg, memories, mood["score"],
                                    signals=mood.get("signals"),

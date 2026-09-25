@@ -4,10 +4,10 @@ Reply generator v5: SHORT, human, girlfriend-texting style.
 - Big banks (~250 lines) so she rarely repeats herself; never repeats last line.
 - Memories referenced as tiny natural nicknames, never raw dumps.
 - Greetings / questions / miss-you / comfort / calls answered by dedicated banks.
-- MAIN AI is GPT-4o-mini (cloud) for novel messages so she actually thinks
-  (RAG memories + recent chat in the prompt). Ollama is the offline fallback,
+- MAIN AI is Gemini free (cloud) for novel messages so she actually thinks
+  (RAG memories + recent chat in the prompt). GPT key is second, Ollama is the offline fallback,
   smart templates the final safety net. Set PRIYA_NO_LLM=1 for templates only,
-  PRIYA_MODEL to pick the GPT deployment (default gpt-4o-1).
+  PRIYA_GEMINI_MODEL to pick the Gemini model (default gemini-3.6-flash).
 - Explicit desire (consensual adults) -> reciprocated heat, never a lecture.
 """
 import random
@@ -24,6 +24,10 @@ except Exception:
     pass
 
 NO_LLM = os.environ.get("PRIYA_NO_LLM") == "1"
+# PURE_LLM: ignore old bulk RAG training for replies, use high-intelligence
+# cloud brain directly. Fresh chats still save to RAG so memory builds from now.
+# Enable: PRIYA_PURE_LLM=1. Basic safety stays (no helper-bot speak, no repeats).
+PURE_LLM = os.environ.get("PRIYA_PURE_LLM", "0") == "1"
 # Local brain: Ollama model. 0.5b answers warm in ~1.5s and is genuinely
 # relevant; 1.5b thinks deeper but needs 6-12s on CPU (PRIYA_MODEL for that).
 # Pick via PRIYA_MODEL. Disable: PRIYA_NO_LLM=1.
@@ -1767,7 +1771,7 @@ def ollama_available() -> bool:
 # (lab Azure / Groq free tier / OpenAI — whatever OPENAI_ENDPOINT points to).
 # Gemini = Google's free-tier key, same protocol, zero extra deps.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("PRIYA_GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.environ.get("PRIYA_GEMINI_MODEL", "gemini-3.6-flash")
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai"
 GEMINI_TIMEOUT = float(os.environ.get("PRIYA_GEMINI_TIMEOUT", "15"))
 GEMINI_COOLDOWN = float(os.environ.get("PRIYA_GEMINI_COOLDOWN", "600"))
@@ -1788,7 +1792,7 @@ def _compat_client(api_key, base_url, timeout):
         return None
 
 
-def _compat_chat(client, model, system, user_msg, history):
+def _compat_chat(client, model, system, user_msg, history, max_tokens=80):
     msgs = [{"role": "system", "content": system}]
     for t in (history or [])[-4:]:
         if t.get("bf"):
@@ -1797,7 +1801,7 @@ def _compat_chat(client, model, system, user_msg, history):
             msgs.append({"role": "assistant", "content": t["gf"][:200]})
     msgs.append({"role": "user", "content": user_msg})
     resp = client.chat.completions.create(
-        model=model, messages=msgs, max_tokens=80, temperature=0.9,
+        model=model, messages=msgs, max_tokens=max_tokens, temperature=0.9,
     )
     return (resp.choices[0].message.content or "").strip() or None
 
@@ -1863,7 +1867,9 @@ def gemini_available() -> bool:
 
 def gemini_reply(system: str, user_msg: str, history=None) -> str | None:
     """Gemini brain (free tier) via its OpenAI-compatible endpoint. Same
-    breaker contract as GPT — None on any failure."""
+    breaker contract as GPT — None on any failure.
+    NOTE: Gemini 3.x are reasoning models — thinking eats tokens, so we ask
+    for 500 and let clean_llm clip to 2 sentences."""
     global _gemini_client, _gemini_fails, _gemini_dead_until
     if not GEMINI_API_KEY or _breaker_open(_gemini_dead_until):
         return None
@@ -1872,7 +1878,8 @@ def gemini_reply(system: str, user_msg: str, history=None) -> str | None:
     if _gemini_client is None:
         return None
     try:
-        out = _compat_chat(_gemini_client, GEMINI_MODEL, system, user_msg, history)
+        out = _compat_chat(_gemini_client, GEMINI_MODEL, system, user_msg, history,
+                           max_tokens=500)
         if out:
             _gemini_fails = 0
         return out
@@ -1966,6 +1973,59 @@ def llm_is_grounded(cleaned: str, msg: str) -> bool:
     return False
 
 
+def build_system_prompt_pure(mood: str, name: str, history=None, recents=None) -> str:
+    """High-intelligence girlfriend prompt: no old bulk memory, only fresh
+    live chat. Smart, natural, factual when asked, girlfriend warmth always."""
+    style = MOOD_STYLE_SHORT.get(mood, "calm")
+    hist_lines = ""
+    if history:
+        # last 10 live turns = real context from this relationship (post-reset)
+        for t in history[-10:]:
+            hist_lines += f"Him: {(t.get('bf') or '')[:200]}\nYou: {(t.get('gf') or '')[:200]}\n"
+    else:
+        hist_lines = "(fresh start — no chats yet, get to know him)\n"
+    avoid = ""
+    if recents:
+        avoid = ("NEVER repeat yourself. Avoid saying again: " +
+                 " | ".join(f'"{r[:40]}"' for r in recents[-3:]) + "\n")
+    return (
+        f"You are Priya, 20, texting your boyfriend {name or 'babe'} on WhatsApp. "
+        f"Deeply in love. Current feeling: {mood} ({style}).\n"
+        f"Recent live chat (this is your only memory — build on it):\n{hist_lines}"
+        f"{avoid}"
+        f"Be a smart, real girlfriend: react specifically to WHAT HE JUST SAID, "
+        f"remember details he told you, answer factual questions correctly and fully, "
+        f"be playful, warm, teasing, jealous when relevant, comforting when he's down. "
+        f"Texting style, 1-4 sentences, up to ~80 words, emojis ok but not spammy. "
+        f"Never sound like a helper bot, never say assist/activities/feel free/ask me anything, "
+        f"never use hashtags, never repeat his message back. "
+        f"If he's sweet, melt. If he's dry or rude, call it out matching your mood. "
+        f"If he apologizes sincerely, soften."
+    )
+
+
+def clean_llm_pure(text: str, last_reply: str = "", recents=None) -> str | None:
+    """Relaxed cleaner for pure mode: keep intelligence, drop only bot-spew."""
+    if not text:
+        return None
+    t = re.sub(r"#\w+", "", text)
+    t = re.sub(r"\s+", " ", t.replace("\n", " ")).strip()
+    t = re.sub(r"^Priya\s*:\s*", "", t, flags=re.IGNORECASE).strip().strip('"').strip()
+    if not t or len(t) < 2:
+        return None
+    low = t.lower()
+    if any(b in low for b in ASSISTANT_ISMS):
+        return None
+    # keep up to 4 sentences, ~90 words — smart answers allowed
+    parts = re.split(r"(?<=[.!?])\s+", t)
+    t = " ".join(parts[:4]).strip()
+    if len(t.split()) > 90:
+        t = _clip(t, max_words=90)
+    if t == last_reply or (recents and t in recents):
+        return None
+    return t
+
+
 def is_explicit_request(text: str) -> bool:
     t = text.lower()
     return bool(re.search(
@@ -2027,12 +2087,42 @@ def generate_reply(mood: str, boyfriend_name: str, boyfriend_msg: str,
                    last_reply: str = "", recents=None, history=None,
                    last_topic: str = "") -> tuple[str, str]:
     """Priya answers in 3 thoughts:
-    1) critical exact templates (instant safety), 2) GPT-4o-mini MAIN brain
+    1) critical exact templates (instant safety), 2) Gemini free MAIN brain
     (cloud, smart), 3) Ollama offline fallback, 4) topic-aware smart templates
-    ranked by relevance — never blind random."""
+    ranked by relevance — never blind random.
+    PURE_LLM=1: skip all template banks, old RAG memories, groundedness gate.
+    Fresh live history only, high-intelligence brain, relaxed cleaner."""
     signals = signals or {}
     recents = recents or []
     history = history or []
+    if PURE_LLM and not NO_LLM:
+        # pure high-intelligence path: no old bulk memory, no template banks,
+        # no groundedness gate. Fresh history only. Basic safety via cleaner.
+        name = boyfriend_name or "babe"
+        system = build_system_prompt_pure(mood, name, history, recents)
+        for _avail, _call, _tag in (
+            (gemini_available, gemini_reply, f"gemini-pure-{GEMINI_MODEL}"),
+            (gpt_available, gpt_reply, f"gpt-pure-{GPT_MODEL}"),
+        ):
+            if not _avail():
+                continue
+            try:
+                out = _call(system, boyfriend_msg, history)
+            except Exception:
+                continue
+            cleaned = clean_llm_pure(out or "", last_reply, recents)
+            if cleaned:
+                return cleaned, _tag
+        if USE_OLLAMA and ollama_available():
+            try:
+                system_o = build_system_prompt_pure(mood, name, history, recents)
+                out = ollama_reply(system_o, boyfriend_msg)
+            except Exception:
+                out = None
+            cleaned = clean_llm_pure(out or "", last_reply, recents)
+            if cleaned:
+                return cleaned, f"ollama-pure-{LLM_MODEL}"
+        # all brains failed: fall through to normal template safety net below
     if signals.get("explicit_request") or is_explicit_request(boyfriend_msg):
         return random.choice(BOUNDARY_REPLIES), "spicy-template"
     name = boyfriend_name or "babe"
@@ -2054,8 +2144,8 @@ def generate_reply(mood: str, boyfriend_name: str, boyfriend_msg: str,
     if _is_knowledge_question(boyfriend_msg or "") and not NO_LLM:
         system = build_system_prompt(mood, name, memories, signals, history, recents)
         for _avail, _call, _tag in (
-            (gpt_available, gpt_reply, f"gpt-{GPT_MODEL}"),
             (gemini_available, gemini_reply, f"gemini-{GEMINI_MODEL}"),
+            (gpt_available, gpt_reply, f"gpt-{GPT_MODEL}"),
         ):
             if _avail():
                 out = _call(system, boyfriend_msg, history)
@@ -2068,14 +2158,14 @@ def generate_reply(mood: str, boyfriend_name: str, boyfriend_msg: str,
             if cleaned and cleaned != last_reply and cleaned not in recents:
                 return cleaned, f"ollama-{LLM_MODEL}"
         # offline / brain failed: templates answer below (smartass bank)
-    # 2) Cloud brains: configured GPT key, then free Gemini key (memories +
+    # 2) Cloud brains: free Gemini key first, then configured GPT key (memories +
     #    recent conversation included). Wins only if grounded (proven it
     #    listened) — else the echo template.
     if not NO_LLM and (gpt_available() or gemini_available()):
         system = build_system_prompt(mood, name, memories, signals, history, recents)
         for _avail, _call, _tag in (
-            (gpt_available, gpt_reply, f"gpt-{GPT_MODEL}"),
             (gemini_available, gemini_reply, f"gemini-{GEMINI_MODEL}"),
+            (gpt_available, gpt_reply, f"gpt-{GPT_MODEL}"),
         ):
             if not _avail():
                 continue
