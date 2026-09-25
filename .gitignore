@@ -14,3 +14,5 @@ data/mood.json
 # secrets
 .env
 *.key
+.vercel
+.env*
